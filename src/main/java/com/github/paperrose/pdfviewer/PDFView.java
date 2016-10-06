@@ -29,6 +29,7 @@ import android.net.Uri;
 import android.os.AsyncTask;
 import android.util.AttributeSet;
 import android.util.Log;
+import android.view.View;
 import android.widget.RelativeLayout;
 
 import com.github.paperrose.pdfviewer.exception.FileNotFoundException;
@@ -318,6 +319,11 @@ public class PDFView extends RelativeLayout {
         // Start decoding document
         decodingAsyncTask = new DecodingAsyncTask(path, isAsset, password, this, pdfiumCore);
         decodingAsyncTask.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
+    }
+
+    public void addTouchEventListener(View view) {
+        if (dragPinchManager != null)
+            dragPinchManager.setAdditionalDetector(view);
     }
 
     /**

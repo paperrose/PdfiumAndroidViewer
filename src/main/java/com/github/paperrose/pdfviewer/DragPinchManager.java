@@ -23,6 +23,9 @@ import android.view.View;
 
 import com.github.paperrose.pdfviewer.scroll.ScrollHandle;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import static com.github.paperrose.pdfviewer.util.Constants.Pinch.MAXIMUM_ZOOM;
 import static com.github.paperrose.pdfviewer.util.Constants.Pinch.MINIMUM_ZOOM;
 
@@ -37,6 +40,9 @@ class DragPinchManager implements GestureDetector.OnGestureListener, GestureDete
 
     private GestureDetector gestureDetector;
     private ScaleGestureDetector scaleGestureDetector;
+
+
+    private List<View> additionalDetectors = new ArrayList<>();
 
     private boolean isSwipeEnabled;
 
@@ -182,10 +188,20 @@ class DragPinchManager implements GestureDetector.OnGestureListener, GestureDete
         hideHandle();
     }
 
+    public void setAdditionalDetector(View additionalDetector) {
+        this.additionalDetectors.add(additionalDetector);
+    }
+
+    public void removeAdditionalDetector(View additionalDetector) {
+        this.additionalDetectors.remove(additionalDetector);
+    }
+
     @Override
     public boolean onTouch(View v, MotionEvent event) {
-       // boolean retVal = scaleGestureDetector.onTouchEvent(event);
-       // retVal = gestureDetector.onTouchEvent(event) || retVal;
+        boolean retVal = scaleGestureDetector.onTouchEvent(event);
+        for (View view : additionalDetectors)
+            view.onTouchEvent(event);
+        retVal = gestureDetector.onTouchEvent(event) || retVal;
 
         if (event.getAction() == MotionEvent.ACTION_UP) {
             if (scrolling) {
@@ -193,7 +209,7 @@ class DragPinchManager implements GestureDetector.OnGestureListener, GestureDete
                 onScrollEnd(event);
             }
         }
-        return false;
+        return retVal;
     }
 
     private void hideHandle() {
