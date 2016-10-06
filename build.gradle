@@ -45,5 +45,5 @@ android {
 }
 
 dependencies {
-    compile 'com.github.paperrose:PdfiumAndroidPort:1.5.1'
+    compile 'com.github.paperrose:PdfiumAndroidPort:1.5.2'
 }
