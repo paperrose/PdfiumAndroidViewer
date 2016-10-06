@@ -24,8 +24,11 @@ import android.view.View;
 import com.github.paperrose.pdfviewer.scroll.ScrollHandle;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
+import static android.view.View.*;
 import static com.github.paperrose.pdfviewer.util.Constants.Pinch.MAXIMUM_ZOOM;
 import static com.github.paperrose.pdfviewer.util.Constants.Pinch.MINIMUM_ZOOM;
 
@@ -33,7 +36,7 @@ import static com.github.paperrose.pdfviewer.util.Constants.Pinch.MINIMUM_ZOOM;
  * This Manager takes care of moving the PDFView,
  * set its zoom track user actions.
  */
-class DragPinchManager implements GestureDetector.OnGestureListener, GestureDetector.OnDoubleTapListener, ScaleGestureDetector.OnScaleGestureListener, View.OnTouchListener {
+class DragPinchManager implements GestureDetector.OnGestureListener, GestureDetector.OnDoubleTapListener, ScaleGestureDetector.OnScaleGestureListener, OnTouchListener {
 
     private PDFView pdfView;
     private AnimationManager animationManager;
@@ -42,8 +45,7 @@ class DragPinchManager implements GestureDetector.OnGestureListener, GestureDete
     private ScaleGestureDetector scaleGestureDetector;
 
 
-    private List<View> additionalSingleTapDetectors = new ArrayList<>();
-    private List<View> additionalDoubleTapDetectors = new ArrayList<>();
+    private Set<OnClickListener> additionalTapListeners = new HashSet<>();
 
     private boolean isSwipeEnabled;
 
@@ -87,8 +89,8 @@ class DragPinchManager implements GestureDetector.OnGestureListener, GestureDete
 
     @Override
     public boolean onSingleTapConfirmed(MotionEvent e) {
-        for (View view : additionalSingleTapDetectors)
-            view.onTouchEvent(e);
+        for (OnClickListener view : additionalTapListeners)
+            view.onClick(null);
         ScrollHandle ps = pdfView.getScrollHandle();
         if (ps != null && !pdfView.documentFitsView()) {
             if (!ps.shown()) {
@@ -109,8 +111,6 @@ class DragPinchManager implements GestureDetector.OnGestureListener, GestureDete
         } else {
             pdfView.resetZoomWithAnimation();
         }
-        for (View view : additionalDoubleTapDetectors)
-            view.onTouchEvent(e);
         return true;
     }
 
@@ -193,20 +193,12 @@ class DragPinchManager implements GestureDetector.OnGestureListener, GestureDete
         hideHandle();
     }
 
-    public void setAdditionalSingleTapDetector(View additionalDetector) {
-        this.additionalSingleTapDetectors.add(additionalDetector);
+    public void setAdditionalSingleTapDetector(OnClickListener additionalDetector) {
+        this.additionalTapListeners.add(additionalDetector);
     }
 
-    public void removeAdditionalSingleTapDetector(View additionalDetector) {
-        this.additionalSingleTapDetectors.remove(additionalDetector);
-    }
-
-    public void setAdditionalDoubleTapDetector(View additionalDetector) {
-        this.additionalDoubleTapDetectors.add(additionalDetector);
-    }
-
-    public void removeAdditionalDoubleTapDetector(View additionalDetector) {
-        this.additionalDoubleTapDetectors.remove(additionalDetector);
+    public void removeAdditionalSingleTapDetector(OnClickListener additionalDetector) {
+        this.additionalTapListeners.remove(additionalDetector);
     }
 
     @Override
