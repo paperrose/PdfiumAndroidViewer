@@ -42,7 +42,8 @@ class DragPinchManager implements GestureDetector.OnGestureListener, GestureDete
     private ScaleGestureDetector scaleGestureDetector;
 
 
-    private List<View> additionalDetectors = new ArrayList<>();
+    private List<View> additionalSingleTapDetectors = new ArrayList<>();
+    private List<View> additionalDoubleTapDetectors = new ArrayList<>();
 
     private boolean isSwipeEnabled;
 
@@ -86,6 +87,8 @@ class DragPinchManager implements GestureDetector.OnGestureListener, GestureDete
 
     @Override
     public boolean onSingleTapConfirmed(MotionEvent e) {
+        for (View view : additionalSingleTapDetectors)
+            view.onTouchEvent(e);
         ScrollHandle ps = pdfView.getScrollHandle();
         if (ps != null && !pdfView.documentFitsView()) {
             if (!ps.shown()) {
@@ -106,6 +109,8 @@ class DragPinchManager implements GestureDetector.OnGestureListener, GestureDete
         } else {
             pdfView.resetZoomWithAnimation();
         }
+        for (View view : additionalDoubleTapDetectors)
+            view.onTouchEvent(e);
         return true;
     }
 
@@ -188,19 +193,27 @@ class DragPinchManager implements GestureDetector.OnGestureListener, GestureDete
         hideHandle();
     }
 
-    public void setAdditionalDetector(View additionalDetector) {
-        this.additionalDetectors.add(additionalDetector);
+    public void setAdditionalSingleTapDetector(View additionalDetector) {
+        this.additionalSingleTapDetectors.add(additionalDetector);
     }
 
-    public void removeAdditionalDetector(View additionalDetector) {
-        this.additionalDetectors.remove(additionalDetector);
+    public void removeAdditionalSingleTapDetector(View additionalDetector) {
+        this.additionalSingleTapDetectors.remove(additionalDetector);
+    }
+
+    public void setAdditionalDoubleTapDetector(View additionalDetector) {
+        this.additionalDoubleTapDetectors.add(additionalDetector);
+    }
+
+    public void removeAdditionalDoubleTapDetector(View additionalDetector) {
+        this.additionalDoubleTapDetectors.remove(additionalDetector);
     }
 
     @Override
     public boolean onTouch(View v, MotionEvent event) {
         boolean retVal = scaleGestureDetector.onTouchEvent(event);
-        for (View view : additionalDetectors)
-            view.onTouchEvent(event);
+    //    for (View view : additionalDetectors)
+     //       view.onTouchEvent(event);
         retVal = gestureDetector.onTouchEvent(event) || retVal;
 
         if (event.getAction() == MotionEvent.ACTION_UP) {

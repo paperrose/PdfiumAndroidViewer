@@ -321,9 +321,14 @@ public class PDFView extends RelativeLayout {
         decodingAsyncTask.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
     }
 
-    public void addTouchEventListener(View view) {
+    public void addAdditionalSingleTapListener(View view) {
         if (dragPinchManager != null)
-            dragPinchManager.setAdditionalDetector(view);
+            dragPinchManager.setAdditionalSingleTapDetector(view);
+    }
+
+    public void addAdditionalDoubleTapListener(View view) {
+        if (dragPinchManager != null)
+            dragPinchManager.setAdditionalDoubleTapDetector(view);
     }
 
     /**
