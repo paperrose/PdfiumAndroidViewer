@@ -197,6 +197,8 @@ public class PDFView extends RelativeLayout {
      */
     private OnLoadCompleteListener onLoadCompleteListener;
 
+    private Bitmap readyBitmap;
+
     private OnErrorListener onErrorListener;
 
     /**
@@ -297,6 +299,13 @@ public class PDFView extends RelativeLayout {
         // Start decoding document
         decodingAsyncTask = new DecodingAsyncTask(fileBytes, password, this, pdfiumCore);
         decodingAsyncTask.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
+    }
+
+    private void load(Bitmap readyBitmap) {
+
+        this.readyBitmap = readyBitmap;
+        recycled = false;
+        redraw();
     }
 
     private void load(String path, boolean isAsset, String password, OnLoadCompleteListener onLoadCompleteListener, OnErrorListener onErrorListener, int[] userPages) {
@@ -570,17 +579,20 @@ public class PDFView extends RelativeLayout {
         float currentXOffset = this.currentXOffset;
         float currentYOffset = this.currentYOffset;
         canvas.translate(currentXOffset, currentYOffset);
+        if (readyBitmap == null) {
+            // Draws thumbnails
+            for (PagePart part : cacheManager.getThumbnails()) {
+                drawPart(canvas, part);
+            }
 
-        // Draws thumbnails
-        for (PagePart part : cacheManager.getThumbnails()) {
-            drawPart(canvas, part);
+            // Draws parts
+            for (PagePart part : cacheManager.getPageParts()) {
+                drawPart(canvas, part);
+            }
+
+        } else {
+            drawBitmap(canvas, readyBitmap);
         }
-
-        // Draws parts
-        for (PagePart part : cacheManager.getPageParts()) {
-            drawPart(canvas, part);
-        }
-
         // Draws the user layer
         if (onDrawListener != null) {
             canvas.translate(toCurrentScale(currentFilteredPage * optimalPageWidth), 0);
@@ -648,6 +660,56 @@ public class PDFView extends RelativeLayout {
             debugPaint.setColor(part.getUserPage() % 2 == 0 ? Color.RED : Color.BLUE);
             canvas.drawRect(dstRect, debugPaint);
         }
+
+        // Restore the canvas position
+        canvas.translate(-localTranslationX, -localTranslationY);
+
+    }
+
+
+    private void drawBitmap(Canvas canvas, Bitmap bitmap) {
+        // Can seem strange, but avoid lot of calls
+        RectF pageRelativeBounds = new RectF(0f, 0f, 1f, 1f);
+        Bitmap renderedBitmap = bitmap;
+
+        if (renderedBitmap.isRecycled()) {
+            return;
+        }
+
+        // Move to the target page
+        float localTranslationX = 0;
+        float localTranslationY = 0;
+        if (swipeVertical)
+            localTranslationY = toCurrentScale(0 * optimalPageHeight);
+        else
+            localTranslationX = toCurrentScale(0 * optimalPageWidth);
+        canvas.translate(localTranslationX, localTranslationY);
+
+        Rect srcRect = new Rect(0, 0, renderedBitmap.getWidth(),
+                renderedBitmap.getHeight());
+
+        float offsetX = toCurrentScale(pageRelativeBounds.left * optimalPageWidth);
+        float offsetY = toCurrentScale(pageRelativeBounds.top * optimalPageHeight);
+        float width = toCurrentScale(pageRelativeBounds.width() * optimalPageWidth);
+        float height = toCurrentScale(pageRelativeBounds.height() * optimalPageHeight);
+
+        // If we use float values for this rectangle, there will be
+        // a possible gap between page parts, especially when
+        // the zoom level is high.
+        RectF dstRect = new RectF((int) offsetX, (int) offsetY,
+                (int) (offsetX + width),
+                (int) (offsetY + height));
+
+        // Check if bitmap is in the screen
+        float translationX = currentXOffset + localTranslationX;
+        float translationY = currentYOffset + localTranslationY;
+        if (translationX + dstRect.left >= getWidth() || translationX + dstRect.right <= 0 ||
+                translationY + dstRect.top >= getHeight() || translationY + dstRect.bottom <= 0) {
+            canvas.translate(-localTranslationX, -localTranslationY);
+            return;
+        }
+
+        canvas.drawBitmap(renderedBitmap, srcRect, dstRect, paint);
 
         // Restore the canvas position
         canvas.translate(-localTranslationX, -localTranslationY);
@@ -1185,6 +1247,8 @@ public class PDFView extends RelativeLayout {
 
         private byte[] fileBytes = null;
 
+        private Bitmap readyBitmap = null;
+
         private boolean enableSwipe = true;
 
         private boolean enableDoubletap = true;
@@ -1218,6 +1282,12 @@ public class PDFView extends RelativeLayout {
             this.path = "";
             this.isAsset = false;
             this.fileBytes = fileBytes;
+        }
+
+        private Configurator(Bitmap readyBitmap) {
+            this.path = "";
+            this.isAsset = false;
+            this.readyBitmap = readyBitmap;
         }
 
         public Configurator pages(int... pageNumbers) {
@@ -1299,6 +1369,8 @@ public class PDFView extends RelativeLayout {
             PDFView.this.dragPinchManager.setSwipeVertical(swipeVertical);
             if (fileBytes != null) {
                 PDFView.this.load(fileBytes, password, onLoadCompleteListener, onErrorListener);
+            } else if (readyBitmap != null) {
+                PDFView.this.load(readyBitmap);
             } else if (pageNumbers != null) {
                 PDFView.this.load(path, isAsset, password, onLoadCompleteListener, onErrorListener, pageNumbers);
             } else {
