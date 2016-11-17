@@ -571,7 +571,7 @@ public class PDFView extends RelativeLayout {
             return;
         }
 
-        if (state != State.SHOWN) {
+        if (state != State.SHOWN && readyBitmap == null) {
             return;
         }
 
