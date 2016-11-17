@@ -1221,6 +1221,11 @@ public class PDFView extends RelativeLayout {
         return new Configurator(file.getAbsolutePath(), false);
     }
 
+
+    public Configurator fromBitmap(Bitmap bitmap) {
+        return new Configurator(bitmap);
+    }
+
     /**
      * Use bytes as the pdf source
      */
