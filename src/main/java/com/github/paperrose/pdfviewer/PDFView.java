@@ -368,6 +368,7 @@ public class PDFView extends RelativeLayout {
     }
 
     void showPage(int pageNb) {
+        if (readyBitmap != null) return;
         if (recycled) {
             return;
         }
@@ -726,6 +727,7 @@ public class PDFView extends RelativeLayout {
      * the current page displayed
      */
     public void loadPages() {
+        if (readyBitmap != null) return;
         if (optimalPageWidth == 0 || optimalPageHeight == 0) {
             return;
         }
