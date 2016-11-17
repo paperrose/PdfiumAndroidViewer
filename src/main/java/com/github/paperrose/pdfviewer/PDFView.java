@@ -305,6 +305,8 @@ public class PDFView extends RelativeLayout {
 
         this.readyBitmap = readyBitmap;
         recycled = false;
+        state = State.LOADED;
+        calculateOptimalWidthAndHeight();
         redraw();
     }
 
