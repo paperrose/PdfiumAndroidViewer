@@ -306,6 +306,8 @@ public class PDFView extends RelativeLayout {
         this.readyBitmap = readyBitmap;
         recycled = false;
         state = State.LOADED;
+        this.pageWidth = readyBitmap.getWidth();
+        this.pageHeight = readyBitmap.getHeight();
         calculateOptimalWidthAndHeight();
         redraw();
     }
@@ -969,6 +971,7 @@ public class PDFView extends RelativeLayout {
 
     void loadPageByOffset() {
         float offset, optimal;
+        if (readyBitmap != null) return;
         if (swipeVertical) {
             offset = currentYOffset;
             optimal = optimalPageHeight;
@@ -976,7 +979,6 @@ public class PDFView extends RelativeLayout {
             offset = currentXOffset;
             optimal = optimalPageWidth;
         }
-
         int page = (int) Math.floor((Math.abs(offset) + getHeight() / 5) / toCurrentScale(optimal));
 
         if (page >= 0 && page <= getPageCount() - 1 && page != getCurrentPage()) {
