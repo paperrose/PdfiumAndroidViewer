@@ -1229,6 +1229,8 @@ public class PDFView extends RelativeLayout {
 
 
     public Configurator fromBitmap(Bitmap bitmap) {
+        this.pageWidth = bitmap.getWidth();
+        this.pageHeight = bitmap.getHeight();
         return new Configurator(bitmap);
     }
 
