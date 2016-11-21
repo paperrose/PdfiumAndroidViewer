@@ -308,7 +308,9 @@ public class PDFView extends RelativeLayout {
         state = State.LOADED;
         this.pageWidth = readyBitmap.getWidth();
         this.pageHeight = readyBitmap.getHeight();
+        documentPageCount = 1;
         calculateOptimalWidthAndHeight();
+        moveTo(0, 0, true);
         redraw();
     }
 
