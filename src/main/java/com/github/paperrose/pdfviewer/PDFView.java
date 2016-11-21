@@ -301,8 +301,8 @@ public class PDFView extends RelativeLayout {
         decodingAsyncTask.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
     }
 
-    private void load(Bitmap readyBitmap) {
-
+    private void load(Bitmap readyBitmap, OnLoadCompleteListener listener) {
+        this.onLoadCompleteListener = listener;
         this.readyBitmap = readyBitmap;
         recycled = false;
         state = State.LOADED;
@@ -720,6 +720,9 @@ public class PDFView extends RelativeLayout {
 
         // Restore the canvas position
         canvas.translate(-localTranslationX, -localTranslationY);
+        if (onLoadCompleteListener != null) {
+            onLoadCompleteListener.loadComplete(0);
+        }
 
     }
 
@@ -1385,7 +1388,7 @@ public class PDFView extends RelativeLayout {
             if (fileBytes != null) {
                 PDFView.this.load(fileBytes, password, onLoadCompleteListener, onErrorListener);
             } else if (readyBitmap != null) {
-                PDFView.this.load(readyBitmap);
+                PDFView.this.load(readyBitmap, onLoadCompleteListener);
             } else if (pageNumbers != null) {
                 PDFView.this.load(path, isAsset, password, onLoadCompleteListener, onErrorListener, pageNumbers);
             } else {
