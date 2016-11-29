@@ -616,6 +616,13 @@ public class PDFView extends RelativeLayout {
         canvas.translate(-currentXOffset, -currentYOffset);
     }
 
+
+    public float getBitmapRatio() {
+        return bitmapRatio;
+    }
+
+    private float bitmapRatio = 0;
+
     /**
      * Draw a given PagePart on the canvas
      */
@@ -655,6 +662,9 @@ public class PDFView extends RelativeLayout {
         // Check if bitmap is in the screen
         float translationX = currentXOffset + localTranslationX;
         float translationY = currentYOffset + localTranslationY;
+
+        bitmapRatio = (float)renderedBitmap.getHeight()/renderedBitmap.getWidth();
+
         if (translationX + dstRect.left >= getWidth() || translationX + dstRect.right <= 0 ||
                 translationY + dstRect.top >= getHeight() || translationY + dstRect.bottom <= 0) {
             canvas.translate(-localTranslationX, -localTranslationY);
@@ -682,7 +692,7 @@ public class PDFView extends RelativeLayout {
         if (renderedBitmap.isRecycled()) {
             return;
         }
-
+        bitmapRatio = (float)renderedBitmap.getHeight()/renderedBitmap.getWidth();
         // Move to the target page
         float localTranslationX = 0;
         float localTranslationY = 0;
