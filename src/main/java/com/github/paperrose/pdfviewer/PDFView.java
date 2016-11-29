@@ -778,7 +778,7 @@ public class PDFView extends RelativeLayout {
         calculateOptimalWidthAndHeight();
 
         pagesLoader = new PagesLoader(this);
-
+        bitmapRatio = this.pageHeight / this.pageWidth;
         renderingAsyncTask = new RenderingAsyncTask(this, pdfiumCore, pdfDocument);
         renderingAsyncTask.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
 
