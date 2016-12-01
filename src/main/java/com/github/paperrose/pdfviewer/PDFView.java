@@ -53,24 +53,6 @@ import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * It supports animations, zoom, cache, and swipe.
- * <p>
- * To fully understand this class you must know its principles :
- * - The PDF document is seen as if we always want to draw all the pages.
- * - The thing is that we only draw the visible parts.
- * - All parts are the same size, this is because we can't interrupt a native page rendering,
- * so we need these renderings to be as fast as possible, and be able to interrupt them
- * as soon as we can.
- * - The parts are loaded when the current offset or the current zoom level changes
- * <p>
- * Important :
- * - DocumentPage = A page of the PDF document.
- * - UserPage = A page as defined by the user.
- * By default, they're the same. But the user can change the pages order
- * using {@link #load(String, boolean, String, OnLoadCompleteListener, OnErrorListener, int[])}. In this
- * particular case, a userPage of 5 can refer to a documentPage of 17.
- */
 public class PDFView extends RelativeLayout {
 
     private static final String TAG = PDFView.class.getSimpleName();
@@ -674,7 +656,7 @@ public class PDFView extends RelativeLayout {
             return;
         }
 
-        bitmapRatio = renderedBitmap.getHeight()/renderedBitmap.getWidth();
+        bitmapRatio = ((float)renderedBitmap.getHeight())/((float)renderedBitmap.getWidth());
         if (onDrawBitmapCompleteListener != null)
             onDrawBitmapCompleteListener.loadComplete(0);
 
