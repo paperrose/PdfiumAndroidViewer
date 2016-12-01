@@ -197,6 +197,7 @@ public class PDFView extends RelativeLayout {
      * Call back object to call when the PDF is loaded
      */
     private OnLoadCompleteListener onLoadCompleteListener;
+    private OnLoadCompleteListener onDrawBitmapCompleteListener;
 
     private Bitmap readyBitmap;
 
@@ -283,17 +284,18 @@ public class PDFView extends RelativeLayout {
         setWillNotDraw(false);
     }
 
-    private void load(String path, boolean isAsset, String password, OnLoadCompleteListener listener, OnErrorListener onErrorListener) {
-        load(path, isAsset, password, listener, onErrorListener, null);
+    private void load(String path, boolean isAsset, String password, OnLoadCompleteListener listener, OnLoadCompleteListener onDrawBitmapCompleteListener, OnErrorListener onErrorListener) {
+        load(path, isAsset, password, listener, onDrawBitmapCompleteListener, onErrorListener, null);
     }
 
-    private void load(byte[] fileBytes, String password, OnLoadCompleteListener onLoadCompleteListener, OnErrorListener onErrorListener) {
+    private void load(byte[] fileBytes, String password, OnLoadCompleteListener onLoadCompleteListener, OnLoadCompleteListener onDrawBitmapCompleteListener, OnErrorListener onErrorListener) {
 
         if (!recycled) {
             throw new IllegalStateException("Don't call load on a PDF View without recycling it first.");
         }
 
         this.onLoadCompleteListener = onLoadCompleteListener;
+        this.onDrawBitmapCompleteListener = onDrawBitmapCompleteListener;
         this.onErrorListener = onErrorListener;
 
         recycled = false;
@@ -302,8 +304,9 @@ public class PDFView extends RelativeLayout {
         decodingAsyncTask.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
     }
 
-    private void load(Bitmap readyBitmap, OnLoadCompleteListener listener) {
+    private void load(Bitmap readyBitmap, OnLoadCompleteListener listener, OnLoadCompleteListener onDrawBitmapCompleteListener) {
         this.onLoadCompleteListener = listener;
+        this.onDrawBitmapCompleteListener = onDrawBitmapCompleteListener;
         this.readyBitmap = readyBitmap;
         recycled = false;
         state = State.LOADED;
@@ -315,7 +318,7 @@ public class PDFView extends RelativeLayout {
         redraw();
     }
 
-    private void load(String path, boolean isAsset, String password, OnLoadCompleteListener onLoadCompleteListener, OnErrorListener onErrorListener, int[] userPages) {
+    private void load(String path, boolean isAsset, String password, OnLoadCompleteListener onLoadCompleteListener, OnLoadCompleteListener onDrawBitmapCompleteListener, OnErrorListener onErrorListener, int[] userPages) {
 
         if (!recycled) {
             throw new IllegalStateException("Don't call load on a PDF View without recycling it first.");
@@ -329,6 +332,7 @@ public class PDFView extends RelativeLayout {
         }
 
         this.onLoadCompleteListener = onLoadCompleteListener;
+        this.onDrawBitmapCompleteListener = onDrawBitmapCompleteListener;
         this.onErrorListener = onErrorListener;
 
         recycled = false;
@@ -664,13 +668,15 @@ public class PDFView extends RelativeLayout {
         float translationX = currentXOffset + localTranslationX;
         float translationY = currentYOffset + localTranslationY;
 
-        bitmapRatio = (1.0f / MathUtils.ceil(getOptimalPageHeight() / 256.0f))/(1.0f / MathUtils.ceil(getOptimalPageWidth() / 256.0f));
-
         if (translationX + dstRect.left >= getWidth() || translationX + dstRect.right <= 0 ||
                 translationY + dstRect.top >= getHeight() || translationY + dstRect.bottom <= 0) {
             canvas.translate(-localTranslationX, -localTranslationY);
             return;
         }
+
+        bitmapRatio = renderedBitmap.getHeight()/renderedBitmap.getWidth();
+        if (onDrawBitmapCompleteListener != null)
+            onDrawBitmapCompleteListener.loadComplete(0);
 
         canvas.drawBitmap(renderedBitmap, srcRect, dstRect, paint);
 
@@ -1304,6 +1310,8 @@ public class PDFView extends RelativeLayout {
 
         private OnLoadCompleteListener onLoadCompleteListener;
 
+        private OnLoadCompleteListener onDrawBitmapCompleteListener;
+
         private OnErrorListener onErrorListener;
 
         private OnPageChangeListener onPageChangeListener;
@@ -1367,6 +1375,12 @@ public class PDFView extends RelativeLayout {
             return this;
         }
 
+        public Configurator onDrawComplete(OnLoadCompleteListener onDrawBitmapCompleteListener) {
+            this.onDrawBitmapCompleteListener = onDrawBitmapCompleteListener;
+            return this;
+        }
+
+
         public Configurator onPageScroll(OnPageScrollListener onPageScrollListener) {
             this.onPageScrollListener = onPageScrollListener;
             return this;
@@ -1415,13 +1429,13 @@ public class PDFView extends RelativeLayout {
             PDFView.this.setScrollHandle(scrollHandle);
             PDFView.this.dragPinchManager.setSwipeVertical(swipeVertical);
             if (fileBytes != null) {
-                PDFView.this.load(fileBytes, password, onLoadCompleteListener, onErrorListener);
+                PDFView.this.load(fileBytes, password, onLoadCompleteListener, onDrawBitmapCompleteListener, onErrorListener);
             } else if (readyBitmap != null) {
-                PDFView.this.load(readyBitmap, onLoadCompleteListener);
+                PDFView.this.load(readyBitmap, onLoadCompleteListener, onDrawBitmapCompleteListener);
             } else if (pageNumbers != null) {
-                PDFView.this.load(path, isAsset, password, onLoadCompleteListener, onErrorListener, pageNumbers);
+                PDFView.this.load(path, isAsset, password, onLoadCompleteListener, onDrawBitmapCompleteListener, onErrorListener, pageNumbers);
             } else {
-                PDFView.this.load(path, isAsset, password, onLoadCompleteListener, onErrorListener);
+                PDFView.this.load(path, isAsset, password, onLoadCompleteListener, onDrawBitmapCompleteListener, onErrorListener);
             }
         }
     }
