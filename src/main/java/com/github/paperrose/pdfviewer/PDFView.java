@@ -580,6 +580,14 @@ public class PDFView extends RelativeLayout {
             }
 
             // Draws parts
+            if (!cacheManager.getPageParts().isEmpty()) {
+                bitmapRatio = ((float) cacheManager.getPageParts().get(0).getRenderedBitmap().getHeight()) /
+                        ((float) cacheManager.getPageParts().get(0).getRenderedBitmap().getWidth());
+            }
+            if (onDrawBitmapCompleteListener != null) {
+                onDrawBitmapCompleteListener.loadComplete(0);
+                onDrawBitmapCompleteListener = null;
+            }
             for (PagePart part : cacheManager.getPageParts()) {
                 drawPart(canvas, part);
             }
@@ -647,18 +655,16 @@ public class PDFView extends RelativeLayout {
                 (int) (offsetY + height));
 
         // Check if bitmap is in the screen
+
         float translationX = currentXOffset + localTranslationX;
         float translationY = currentYOffset + localTranslationY;
 
         if (translationX + dstRect.left >= getWidth() || translationX + dstRect.right <= 0 ||
                 translationY + dstRect.top >= getHeight() || translationY + dstRect.bottom <= 0) {
             canvas.translate(-localTranslationX, -localTranslationY);
+
             return;
         }
-
-        bitmapRatio = ((float)renderedBitmap.getHeight())/((float)renderedBitmap.getWidth());
-        if (onDrawBitmapCompleteListener != null)
-            onDrawBitmapCompleteListener.loadComplete(0);
 
         canvas.drawBitmap(renderedBitmap, srcRect, dstRect, paint);
 
