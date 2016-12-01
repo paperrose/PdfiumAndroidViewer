@@ -29,6 +29,7 @@ import android.net.Uri;
 import android.os.AsyncTask;
 import android.util.AttributeSet;
 import android.util.Log;
+import android.util.Pair;
 import android.view.View;
 import android.widget.RelativeLayout;
 
@@ -663,7 +664,7 @@ public class PDFView extends RelativeLayout {
         float translationX = currentXOffset + localTranslationX;
         float translationY = currentYOffset + localTranslationY;
 
-        bitmapRatio = (float)renderedBitmap.getHeight()/renderedBitmap.getWidth();
+        bitmapRatio = (1.0f / MathUtils.ceil(getOptimalPageHeight() / 256.0f))/(1.0f / MathUtils.ceil(getOptimalPageWidth() / 256.0f));
 
         if (translationX + dstRect.left >= getWidth() || translationX + dstRect.right <= 0 ||
                 translationY + dstRect.top >= getHeight() || translationY + dstRect.bottom <= 0) {
@@ -692,7 +693,7 @@ public class PDFView extends RelativeLayout {
         if (renderedBitmap.isRecycled()) {
             return;
         }
-        bitmapRatio = (float)renderedBitmap.getHeight()/renderedBitmap.getWidth();
+        bitmapRatio = (1.0f / MathUtils.ceil(getOptimalPageHeight() / 256.0f))/(1.0f / MathUtils.ceil(getOptimalPageWidth() / 256.0f));;
         // Move to the target page
         float localTranslationX = 0;
         float localTranslationY = 0;
@@ -778,9 +779,27 @@ public class PDFView extends RelativeLayout {
         calculateOptimalWidthAndHeight();
 
         pagesLoader = new PagesLoader(this);
-        bitmapRatio = (float)this.pageHeight / this.pageWidth;
+
+
+
+        float ratioX = 1f / getOptimalPageWidth();
+        float ratioY = 1f / getOptimalPageHeight();
+        final float partHeight = (Constants.PART_SIZE * ratioY) / getZoom();
+        final float partWidth = (Constants.PART_SIZE * ratioX) / getZoom();
+        final int nbRows = MathUtils.ceil(1f / partHeight);
+        final int nbCols = MathUtils.ceil(1f / partWidth);
+        final float scaledHeight = getOptimalPageHeight();
+        final float scaledWidth = getOptimalPageWidth();
+        bitmapRatio = (1.0f / MathUtils.ceil(getOptimalPageHeight() / 256.0f))/(1.0f / MathUtils.ceil(getOptimalPageWidth() / 256.0f));
+
+
         renderingAsyncTask = new RenderingAsyncTask(this, pdfiumCore, pdfDocument);
         renderingAsyncTask.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
+
+      /*  int w = Math.round(renderingAsyncTask.width);
+        int h = Math.round(renderingAsyncTask.height);
+        Bitmap render = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888);
+        calculateBounds(w, h, renderingTask.bounds);*/
 
         if (scrollHandle != null) {
             scrollHandle.setupLayout(this);
