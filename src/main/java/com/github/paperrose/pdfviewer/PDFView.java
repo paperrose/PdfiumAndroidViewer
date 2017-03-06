@@ -65,6 +65,10 @@ public class PDFView extends RelativeLayout {
     private float midZoom = DEFAULT_MID_SCALE;
     private float maxZoom = DEFAULT_MAX_SCALE;
 
+    public interface OnZoomListener {
+        void onZoom(float zoom);
+    }
+
     /**
      * START - scrolling in first page direction
      * END - scrolling in last page direction
@@ -326,6 +330,11 @@ public class PDFView extends RelativeLayout {
     public void addAdditionalSingleTapListener(OnClickListener listener) {
         if (dragPinchManager != null)
             dragPinchManager.setAdditionalSingleTapDetector(listener);
+    }
+
+    public void addAdditionalZoomListener(OnZoomListener listener) {
+        if (dragPinchManager != null)
+            dragPinchManager.setAdditionalZoomDetector(listener);
     }
 
     /**

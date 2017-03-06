@@ -46,6 +46,7 @@ class DragPinchManager implements GestureDetector.OnGestureListener, GestureDete
 
 
     private Set<OnClickListener> additionalTapListeners = new HashSet<>();
+    private Set<PDFView.OnZoomListener> additionalZoomListeners = new HashSet<>();
 
     private boolean isSwipeEnabled;
 
@@ -111,6 +112,8 @@ class DragPinchManager implements GestureDetector.OnGestureListener, GestureDete
         } else {
             pdfView.resetZoomWithAnimation();
         }
+        for (PDFView.OnZoomListener view : additionalZoomListeners)
+            view.onZoom(pdfView.getZoom());
         return true;
     }
 
@@ -190,6 +193,8 @@ class DragPinchManager implements GestureDetector.OnGestureListener, GestureDete
     @Override
     public void onScaleEnd(ScaleGestureDetector detector) {
         pdfView.loadPages();
+        for (PDFView.OnZoomListener view : additionalZoomListeners)
+            view.onZoom(pdfView.getZoom());
         hideHandle();
     }
 
@@ -199,6 +204,14 @@ class DragPinchManager implements GestureDetector.OnGestureListener, GestureDete
 
     public void removeAdditionalSingleTapDetector(OnClickListener additionalDetector) {
         this.additionalTapListeners.remove(additionalDetector);
+    }
+
+    public void setAdditionalZoomDetector(PDFView.OnZoomListener additionalDetector) {
+        this.additionalZoomListeners.add(additionalDetector);
+    }
+
+    public void removeAdditionalZoomDetector(PDFView.OnZoomListener additionalDetector) {
+        this.additionalZoomListeners.remove(additionalDetector);
     }
 
     @Override
