@@ -532,6 +532,7 @@ public class PDFView extends RelativeLayout {
         if (isInEditMode()) {
             return;
         }
+
         // As I said in this class javadoc, we can think of this canvas as a huge
         // strip on which we draw all the images. We actually only draw the rendered
         // parts, of course, but we render them in the place they belong in this huge
@@ -563,6 +564,7 @@ public class PDFView extends RelativeLayout {
 
         // Draws background
         Drawable bg = getBackground();
+        Log.d("startDrawPdf", Long.toString(System.nanoTime()));
         if (bg == null) {
             canvas.drawColor(Color.WHITE);
         } else {
@@ -604,6 +606,8 @@ public class PDFView extends RelativeLayout {
         } else {
             drawBitmap(canvas, readyBitmap);
         }
+
+        Log.d("endDrawPdf", Long.toString(System.nanoTime()));
         // Draws the user layer
         if (onDrawListener != null) {
             canvas.translate(toCurrentScale(currentFilteredPage * optimalPageWidth), 0);
