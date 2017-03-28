@@ -1,12 +1,12 @@
 /**
  * Copyright 2016 Bartosz Schiller
- * <p/>
+ * <p>
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * <p/>
+ * <p>
  * http://www.apache.org/licenses/LICENSE-2.0
- * <p/>
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -255,8 +255,6 @@ public class PDFView extends RelativeLayout {
      * Construct the initial view
      */
     private ExtSurfaceView surfaceView;
-
-
 
 
     public PDFView(Context context, AttributeSet set) {
@@ -538,71 +536,21 @@ public class PDFView extends RelativeLayout {
             moveTo(calculateCenterOffsetForPage(currentFilteredPage), currentYOffset);
     }
 
-
-    public class ExtSurfaceView extends SurfaceView implements
-            SurfaceHolder.Callback {
+    public class ExtSurfaceView extends SurfaceView implements SurfaceHolder.Callback {
+        private DrawThread drawThread;
 
         public ExtSurfaceView(Context context) {
             super(context);
-        }
-
-        public ExtSurfaceView(Context context, AttributeSet attrs) {
-            super(context, attrs);
-        }
-
-        public ExtSurfaceView(Context context, AttributeSet attrs, int defStyleAttr) {
-            super(context, attrs, defStyleAttr);
+            getHolder().addCallback(this);
+            setFocusable(true);
+            drawThread = new DrawThread(getHolder());
         }
 
         @Override
-        public void surfaceCreated(SurfaceHolder holder) {
-            super.setWillNotDraw(false);
-        }
-
-        @Override
-        public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
-
-        }
-
-        @Override
-        public void surfaceDestroyed(SurfaceHolder holder) {
-
-        }
-
-        @Override
-        protected void onDraw(Canvas canvas) {
+        public void onDraw(Canvas canvas) {
             if (isInEditMode()) {
                 return;
             }
-
-            // As I said in this class javadoc, we can think of this canvas as a huge
-            // strip on which we draw all the images. We actually only draw the rendered
-            // parts, of course, but we render them in the place they belong in this huge
-            // strip.
-
-            // That's where Canvas.translate(x, y) becomes very helpful.
-            // This is the situation :
-            //  _______________________________________________
-            // |   			 |					 			   |
-            // | the actual  |					The big strip  |
-            // |	canvas	 | 								   |
-            // |_____________|								   |
-            // |_______________________________________________|
-            //
-            // If the rendered part is on the bottom right corner of the strip
-            // we can draw it but we won't see it because the canvas is not big enough.
-
-            // But if we call translate(-X, -Y) on the canvas just before drawing the object :
-            //  _______________________________________________
-            // |   			  					  _____________|
-            // |   The big strip     			 |			   |
-            // |		    					 |	the actual |
-            // |								 |	canvas	   |
-            // |_________________________________|_____________|
-            //
-            // The object will be on the canvas.
-            // This technique is massively used in this method, and allows
-            // abstraction of the screen position when rendering the parts.
 
             // Draws background
             Drawable bg = getBackground();
@@ -667,14 +615,76 @@ public class PDFView extends RelativeLayout {
             // Restores the canvas position
             canvas.translate(-currentXOffset, -currentYOffset);
         }
+
+
+        @Override
+        public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
+        }
+
+
+        public void requestUpdate() {
+            if (drawThread != null)
+                drawThread.setRunning(true);
+        }
+
+        @Override
+        public void surfaceCreated(SurfaceHolder holder) {
+            drawThread.setRunning(true);
+            drawThread.start();
+        }
+
+        @Override
+        public void surfaceDestroyed(SurfaceHolder holder) {
+            boolean retry = true;
+            drawThread.setRunning(false);
+            while (retry) {
+                try {
+                    drawThread.join();
+                    retry = false;
+                } catch (InterruptedException e) {
+                }
+            }
+        }
+
+        protected class DrawThread extends Thread {
+            private SurfaceHolder surfaceHolder;
+            private boolean isRunning;
+
+            public DrawThread(SurfaceHolder surfaceHolder) {
+                this.surfaceHolder = surfaceHolder;
+                isRunning = false;
+            }
+
+            public void setRunning(boolean run) {
+                isRunning = run;
+            }
+
+            public void run() {
+                Canvas c;
+                while (isRunning) {
+                    c = null;
+                    try {
+                        c = surfaceHolder.lockCanvas(null);
+                        synchronized (surfaceHolder) {
+                            invalidate();
+                        }
+                    } finally {
+                        if (c != null) {
+                            surfaceHolder.unlockCanvasAndPost(c);
+                        }
+                    }
+                }
+            }
+        }
     }
+
 
     @Override
     protected void onDraw(Canvas canvas) {
        /* if (isInEditMode()) {
             return;
         }*/
-        surfaceView.invalidate();
+        surfaceView.requestUpdate();
 
         // As I said in this class javadoc, we can think of this canvas as a huge
         // strip on which we draw all the images. We actually only draw the rendered
@@ -845,7 +855,8 @@ public class PDFView extends RelativeLayout {
         if (renderedBitmap.isRecycled()) {
             return;
         }
-        bitmapRatio = (1.0f / MathUtils.ceil(getOptimalPageHeight() / 256.0f))/(1.0f / MathUtils.ceil(getOptimalPageWidth() / 256.0f));;
+        bitmapRatio = (1.0f / MathUtils.ceil(getOptimalPageHeight() / 256.0f)) / (1.0f / MathUtils.ceil(getOptimalPageWidth() / 256.0f));
+        ;
         // Move to the target page
         float localTranslationX = 0;
         float localTranslationY = 0;
@@ -923,7 +934,7 @@ public class PDFView extends RelativeLayout {
         // We assume all the pages are the same size
         this.pdfDocument = pdfDocument;
         if (allPages)
-            pdfiumCore.openPage(pdfDocument, 0, this.documentPageCount-1);
+            pdfiumCore.openPage(pdfDocument, 0, this.documentPageCount - 1);
         else
             pdfiumCore.openPage(pdfDocument, firstPageIdx);
         this.pageWidth = pdfiumCore.getPageWidth(pdfDocument, firstPageIdx);
@@ -931,7 +942,6 @@ public class PDFView extends RelativeLayout {
         calculateOptimalWidthAndHeight();
 
         pagesLoader = new PagesLoader(this);
-
 
 
         float ratioX = 1f / getOptimalPageWidth();
@@ -942,7 +952,7 @@ public class PDFView extends RelativeLayout {
         final int nbCols = MathUtils.ceil(1f / partWidth);
         final float scaledHeight = getOptimalPageHeight();
         final float scaledWidth = getOptimalPageWidth();
-        bitmapRatio = (1.0f / MathUtils.ceil(getOptimalPageHeight() / 256.0f))/(1.0f / MathUtils.ceil(getOptimalPageWidth() / 256.0f));
+        bitmapRatio = (1.0f / MathUtils.ceil(getOptimalPageHeight() / 256.0f)) / (1.0f / MathUtils.ceil(getOptimalPageWidth() / 256.0f));
 
 
         renderingAsyncTask = new RenderingAsyncTask(this, pdfiumCore, pdfDocument);
