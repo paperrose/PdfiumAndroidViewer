@@ -669,6 +669,7 @@ public class PDFView extends RelativeLayout {
                         c = surfaceHolder.lockCanvas(null);
                         synchronized (surfaceHolder) {
                             surfaceView.sdraw(c);
+                            isRunning = false;
                         }
                     } finally {
                         if (c != null) {
