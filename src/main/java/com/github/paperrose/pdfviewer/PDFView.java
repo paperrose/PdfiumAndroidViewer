@@ -543,11 +543,11 @@ public class PDFView extends RelativeLayout {
             super(context);
             getHolder().addCallback(this);
             setFocusable(true);
-            drawThread = new DrawThread(getHolder());
+            drawThread = new DrawThread(getHolder(), ExtSurfaceView.this);
         }
 
-        @Override
-        public void onDraw(Canvas canvas) {
+
+        public void sdraw(Canvas canvas) {
             if (isInEditMode()) {
                 return;
             }
@@ -577,7 +577,6 @@ public class PDFView extends RelativeLayout {
             if (readyBitmap == null) {
                 // Draws thumbnails
                 for (PagePart part : cacheManager.getThumbnails()) {
-                    Log.d("progressDrawPdf0", Long.toString(System.currentTimeMillis()));
                     drawPart(canvas, part);
                 }
 
@@ -591,7 +590,6 @@ public class PDFView extends RelativeLayout {
                     onDrawBitmapCompleteListener = null;
                 }
                 for (PagePart part : cacheManager.getPageParts()) {
-                    Log.d("progressDrawPdf1", Long.toString(System.currentTimeMillis()));
                     drawPart(canvas, part);
                 }
 
@@ -650,9 +648,11 @@ public class PDFView extends RelativeLayout {
         protected class DrawThread extends Thread {
             private SurfaceHolder surfaceHolder;
             private boolean isRunning;
+            private ExtSurfaceView surfaceView;
 
-            public DrawThread(SurfaceHolder surfaceHolder) {
+            public DrawThread(SurfaceHolder surfaceHolder, ExtSurfaceView surfaceView) {
                 this.surfaceHolder = surfaceHolder;
+                this.surfaceView = surfaceView;
                 isRunning = false;
             }
 
@@ -667,7 +667,7 @@ public class PDFView extends RelativeLayout {
                     try {
                         c = surfaceHolder.lockCanvas(null);
                         synchronized (surfaceHolder) {
-                            invalidate();
+                            surfaceView.sdraw(c);
                         }
                     } finally {
                         if (c != null) {
