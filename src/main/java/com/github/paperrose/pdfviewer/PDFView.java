@@ -30,7 +30,10 @@ import android.os.AsyncTask;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.util.Pair;
+import android.view.SurfaceHolder;
+import android.view.SurfaceView;
 import android.view.View;
+import android.view.ViewGroup;
 import android.widget.RelativeLayout;
 
 import com.github.paperrose.pdfviewer.exception.FileNotFoundException;
@@ -251,6 +254,11 @@ public class PDFView extends RelativeLayout {
     /**
      * Construct the initial view
      */
+    private ExtSurfaceView surfaceView;
+
+
+
+
     public PDFView(Context context, AttributeSet set) {
         super(context, set);
 
@@ -267,6 +275,9 @@ public class PDFView extends RelativeLayout {
         debugPaint.setStyle(Style.STROKE);
 
         pdfiumCore = new PdfiumCore(context);
+        surfaceView = new ExtSurfaceView(context);
+        surfaceView.setLayoutParams(new RelativeLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        addView(surfaceView);
         setWillNotDraw(false);
     }
 
@@ -527,11 +538,143 @@ public class PDFView extends RelativeLayout {
             moveTo(calculateCenterOffsetForPage(currentFilteredPage), currentYOffset);
     }
 
+
+    public class ExtSurfaceView extends SurfaceView implements
+            SurfaceHolder.Callback {
+
+        public ExtSurfaceView(Context context) {
+            super(context);
+        }
+
+        public ExtSurfaceView(Context context, AttributeSet attrs) {
+            super(context, attrs);
+        }
+
+        public ExtSurfaceView(Context context, AttributeSet attrs, int defStyleAttr) {
+            super(context, attrs, defStyleAttr);
+        }
+
+        @Override
+        public void surfaceCreated(SurfaceHolder holder) {
+            super.setWillNotDraw(false);
+        }
+
+        @Override
+        public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
+
+        }
+
+        @Override
+        public void surfaceDestroyed(SurfaceHolder holder) {
+
+        }
+
+        @Override
+        protected void onDraw(Canvas canvas) {
+            if (isInEditMode()) {
+                return;
+            }
+
+            // As I said in this class javadoc, we can think of this canvas as a huge
+            // strip on which we draw all the images. We actually only draw the rendered
+            // parts, of course, but we render them in the place they belong in this huge
+            // strip.
+
+            // That's where Canvas.translate(x, y) becomes very helpful.
+            // This is the situation :
+            //  _______________________________________________
+            // |   			 |					 			   |
+            // | the actual  |					The big strip  |
+            // |	canvas	 | 								   |
+            // |_____________|								   |
+            // |_______________________________________________|
+            //
+            // If the rendered part is on the bottom right corner of the strip
+            // we can draw it but we won't see it because the canvas is not big enough.
+
+            // But if we call translate(-X, -Y) on the canvas just before drawing the object :
+            //  _______________________________________________
+            // |   			  					  _____________|
+            // |   The big strip     			 |			   |
+            // |		    					 |	the actual |
+            // |								 |	canvas	   |
+            // |_________________________________|_____________|
+            //
+            // The object will be on the canvas.
+            // This technique is massively used in this method, and allows
+            // abstraction of the screen position when rendering the parts.
+
+            // Draws background
+            Drawable bg = getBackground();
+            Log.d("startDrawPdf", Long.toString(System.currentTimeMillis()));
+            if (bg == null) {
+                canvas.drawColor(Color.WHITE);
+            } else {
+                bg.draw(canvas);
+            }
+
+
+            if (recycled) {
+                return;
+            }
+
+            if (state != State.SHOWN && readyBitmap == null) {
+                return;
+            }
+
+            // Moves the canvas before drawing any element
+            float currentXOffset = PDFView.this.currentXOffset;
+            float currentYOffset = PDFView.this.currentYOffset;
+            canvas.translate(currentXOffset, currentYOffset);
+            if (readyBitmap == null) {
+                // Draws thumbnails
+                for (PagePart part : cacheManager.getThumbnails()) {
+                    Log.d("progressDrawPdf0", Long.toString(System.currentTimeMillis()));
+                    drawPart(canvas, part);
+                }
+
+                // Draws parts
+                if (!cacheManager.getPageParts().isEmpty()) {
+                    bitmapRatio = ((float) cacheManager.getPageParts().get(0).getRenderedBitmap().getHeight()) /
+                            ((float) cacheManager.getPageParts().get(0).getRenderedBitmap().getWidth());
+                }
+                if (onDrawBitmapCompleteListener != null) {
+                    onDrawBitmapCompleteListener.loadComplete(0);
+                    onDrawBitmapCompleteListener = null;
+                }
+                for (PagePart part : cacheManager.getPageParts()) {
+                    Log.d("progressDrawPdf1", Long.toString(System.currentTimeMillis()));
+                    drawPart(canvas, part);
+                }
+
+            } else {
+                drawBitmap(canvas, readyBitmap);
+            }
+
+            Log.d("endDrawPdf", Long.toString(System.currentTimeMillis()));
+            // Draws the user layer
+            if (onDrawListener != null) {
+                canvas.translate(toCurrentScale(currentFilteredPage * optimalPageWidth), 0);
+
+                onDrawListener.onLayerDrawn(canvas, //
+                        toCurrentScale(optimalPageWidth), //
+                        toCurrentScale(optimalPageHeight),
+                        currentPage);
+
+                canvas.translate(-toCurrentScale(currentFilteredPage * optimalPageWidth), 0);
+            }
+
+            // Restores the canvas position
+            canvas.translate(-currentXOffset, -currentYOffset);
+        }
+    }
+
     @Override
     protected void onDraw(Canvas canvas) {
-        if (isInEditMode()) {
+       /* if (isInEditMode()) {
             return;
-        }
+        }*/
+        surfaceView.invalidate();
 
         // As I said in this class javadoc, we can think of this canvas as a huge
         // strip on which we draw all the images. We actually only draw the rendered
@@ -563,7 +706,7 @@ public class PDFView extends RelativeLayout {
         // abstraction of the screen position when rendering the parts.
 
         // Draws background
-        Drawable bg = getBackground();
+      /*  Drawable bg = getBackground();
         Log.d("startDrawPdf", Long.toString(System.currentTimeMillis()));
         if (bg == null) {
             canvas.drawColor(Color.WHITE);
@@ -623,7 +766,7 @@ public class PDFView extends RelativeLayout {
         }
 
         // Restores the canvas position
-        canvas.translate(-currentXOffset, -currentYOffset);
+        canvas.translate(-currentXOffset, -currentYOffset);*/
     }
 
 
