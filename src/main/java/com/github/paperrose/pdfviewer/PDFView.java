@@ -1,12 +1,12 @@
 /**
  * Copyright 2016 Bartosz Schiller
- * <p>
+ * <p/>
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * <p>
+ * <p/>
  * http://www.apache.org/licenses/LICENSE-2.0
- * <p>
+ * <p/>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -254,7 +254,7 @@ public class PDFView extends RelativeLayout {
     /**
      * Construct the initial view
      */
-    private ExtSurfaceView surfaceView;
+
 
 
     public PDFView(Context context, AttributeSet set) {
@@ -273,10 +273,10 @@ public class PDFView extends RelativeLayout {
         debugPaint.setStyle(Style.STROKE);
 
         pdfiumCore = new PdfiumCore(context);
-        surfaceView = new ExtSurfaceView(context);
-        surfaceView.setLayoutParams(new RelativeLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
-        addView(surfaceView);
         setWillNotDraw(false);
+        surfaceView = new ExtSurfaceView(context);
+        surfaceView.setLayoutParams(new LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        addView(surfaceView);
     }
 
     private void load(String path, boolean isAsset, String password, OnLoadCompleteListener listener, OnLoadCompleteListener onDrawBitmapCompleteListener, OnErrorListener onErrorListener) {
@@ -536,251 +536,160 @@ public class PDFView extends RelativeLayout {
             moveTo(calculateCenterOffsetForPage(currentFilteredPage), currentYOffset);
     }
 
-    public class ExtSurfaceView extends SurfaceView implements SurfaceHolder.Callback {
-        private DrawThread drawThread;
+    public class ExtSurfaceView extends SurfaceView implements Runnable, SurfaceHolder.Callback {
+
+        Thread mThread;
+        SurfaceHolder mSurfaceHolder;
+        volatile boolean running = false;
+
 
         public ExtSurfaceView(Context context) {
             super(context);
-            getHolder().addCallback(this);
-            setFocusable(true);
-            drawThread = new DrawThread(getHolder(), ExtSurfaceView.this);
+            init();
+        }
+
+        public ExtSurfaceView(Context context, AttributeSet attrs) {
+            super(context, attrs);
+            init();
+        }
+
+        public ExtSurfaceView(Context context, AttributeSet attrs, int defStyleAttr) {
+            super(context, attrs, defStyleAttr);
+            init();
+        }
+
+        public void resume(){
+            running = true;
+            mThread = new Thread(this);
+            mThread.start();
         }
 
 
-        public void sdraw(Canvas canvas) {
-            if (ExtSurfaceView.this.isInEditMode()) {
-                return;
-            }
-            if (canvas == null) return;
-            // Draws background
-            Drawable bg = getBackground();
-            Log.d("startDrawPdf", Long.toString(System.currentTimeMillis()));
-            if (bg == null) {
-
-                canvas.drawColor(Color.WHITE);
-            } else {
-                bg.draw(canvas);
-            }
-
-
-            if (recycled) {
-                return;
-            }
-
-            if (state != State.SHOWN && readyBitmap == null) {
-                return;
-            }
-
-            // Moves the canvas before drawing any element
-            float currentXOffset = PDFView.this.currentXOffset;
-            float currentYOffset = PDFView.this.currentYOffset;
-            canvas.translate(currentXOffset, currentYOffset);
-            if (readyBitmap == null) {
-                // Draws thumbnails
-                for (PagePart part : cacheManager.getThumbnails()) {
-                    drawPart(canvas, part);
+        public void pause(){
+            boolean retry = true;
+            running = false;
+            while(retry){
+                try {
+                    mThread.join();
+                    retry = false;
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
                 }
-
-                // Draws parts
-                if (!cacheManager.getPageParts().isEmpty()) {
-                    bitmapRatio = ((float) cacheManager.getPageParts().get(0).getRenderedBitmap().getHeight()) /
-                            ((float) cacheManager.getPageParts().get(0).getRenderedBitmap().getWidth());
-                }
-                if (onDrawBitmapCompleteListener != null) {
-                    onDrawBitmapCompleteListener.loadComplete(0);
-                    onDrawBitmapCompleteListener = null;
-                }
-                for (PagePart part : cacheManager.getPageParts()) {
-                    drawPart(canvas, part);
-                }
-
-            } else {
-                drawBitmap(canvas, readyBitmap);
             }
-
-            Log.d("endDrawPdf", Long.toString(System.currentTimeMillis()));
-            // Draws the user layer
-            if (onDrawListener != null) {
-                canvas.translate(toCurrentScale(currentFilteredPage * optimalPageWidth), 0);
-
-                onDrawListener.onLayerDrawn(canvas, //
-                        toCurrentScale(optimalPageWidth), //
-                        toCurrentScale(optimalPageHeight),
-                        currentPage);
-
-                canvas.translate(-toCurrentScale(currentFilteredPage * optimalPageWidth), 0);
-            }
-
-            // Restores the canvas position
-            canvas.translate(-currentXOffset, -currentYOffset);
-            drawThread.setRunning(false);
         }
 
-
-        @Override
-        public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
-        }
-
-
-        public void requestUpdate() {
-            if (drawThread != null)
-                drawThread.setRunning(true);
+        public void init() {
+            mSurfaceHolder = getHolder();
+            mSurfaceHolder.addCallback(this);
         }
 
         @Override
         public void surfaceCreated(SurfaceHolder holder) {
-            drawThread.setRunning(true);
-            drawThread.start();
+            this.resume();
+        }
+
+        @Override
+        public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
+
         }
 
         @Override
         public void surfaceDestroyed(SurfaceHolder holder) {
-            boolean retry = true;
-            drawThread.setRunning(false);
-            while (retry) {
-                try {
-                    drawThread.join();
-                    retry = false;
-                } catch (InterruptedException e) {
-                }
-            }
+
         }
 
-        protected class DrawThread extends Thread {
-            private SurfaceHolder surfaceHolder;
-            private boolean isRunning;
-            private ExtSurfaceView surfaceView;
 
-            public DrawThread(SurfaceHolder surfaceHolder, ExtSurfaceView surfaceView) {
-                this.surfaceHolder = surfaceHolder;
-                this.surfaceView = surfaceView;
-                isRunning = false;
-            }
+        @Override
+        public void run() {
+            while(running){
+                if(mSurfaceHolder.getSurface().isValid()){
+                    Canvas canvas = mSurfaceHolder.lockCanvas();
 
-            public void setRunning(boolean run) {
-                isRunning = run;
-            }
 
-            public void run() {
-                Canvas c;
-                while (isRunning) {
-                    c = null;
-                    try {
-                        c = surfaceHolder.lockCanvas(null);
-                        synchronized (surfaceHolder) {
-                            surfaceView.sdraw(c);
-                        }
-                    } finally {
-                        if (c != null) {
-                            surfaceHolder.unlockCanvasAndPost(c);
-                        }
+                    if (isInEditMode()) {
+                        mSurfaceHolder.unlockCanvasAndPost(canvas);
+                        return;
                     }
+
+                    // Draws background
+                    Drawable bg = getBackground();
+                    Log.d("startDrawPdf", Long.toString(System.currentTimeMillis()));
+                    if (bg == null) {
+                        canvas.drawColor(Color.BLACK);
+                    } else {
+                        bg.draw(canvas);
+                    }
+
+
+                    if (recycled) {
+                        mSurfaceHolder.unlockCanvasAndPost(canvas);
+                        return;
+                    }
+
+                    if (state != State.SHOWN && readyBitmap == null) {
+                        mSurfaceHolder.unlockCanvasAndPost(canvas);
+                        return;
+                    }
+
+                    // Moves the canvas before drawing any element
+                    float currentXOffset = PDFView.this.currentXOffset;
+                    float currentYOffset = PDFView.this.currentYOffset;
+                    canvas.translate(currentXOffset, currentYOffset);
+                    if (readyBitmap == null) {
+                        // Draws thumbnails
+                        for (PagePart part : cacheManager.getThumbnails()) {
+                            drawPart(canvas, part);
+                        }
+
+                        // Draws parts
+                        if (!cacheManager.getPageParts().isEmpty()) {
+                            bitmapRatio = ((float) cacheManager.getPageParts().get(0).getRenderedBitmap().getHeight()) /
+                                    ((float) cacheManager.getPageParts().get(0).getRenderedBitmap().getWidth());
+                        }
+                        if (onDrawBitmapCompleteListener != null) {
+                            onDrawBitmapCompleteListener.loadComplete(0);
+                            onDrawBitmapCompleteListener = null;
+                        }
+                        for (PagePart part : cacheManager.getPageParts()) {
+                            drawPart(canvas, part);
+                        }
+
+                    } else {
+                        drawBitmap(canvas, readyBitmap);
+                    }
+
+                    Log.d("endDrawPdf", Long.toString(System.currentTimeMillis()));
+                    // Draws the user layer
+                    if (onDrawListener != null) {
+                        canvas.translate(toCurrentScale(currentFilteredPage * optimalPageWidth), 0);
+
+                        onDrawListener.onLayerDrawn(canvas, //
+                                toCurrentScale(optimalPageWidth), //
+                                toCurrentScale(optimalPageHeight),
+                                currentPage);
+
+                        canvas.translate(-toCurrentScale(currentFilteredPage * optimalPageWidth), 0);
+                    }
+
+                    // Restores the canvas position
+                    canvas.translate(-currentXOffset, -currentYOffset);
+
+
+                    mSurfaceHolder.unlockCanvasAndPost(canvas);
+                    pause();
                 }
             }
         }
     }
-
 
     @Override
     protected void onDraw(Canvas canvas) {
-       /* if (isInEditMode()) {
-            return;
-        }*/
-        surfaceView.requestUpdate();
-
-        // As I said in this class javadoc, we can think of this canvas as a huge
-        // strip on which we draw all the images. We actually only draw the rendered
-        // parts, of course, but we render them in the place they belong in this huge
-        // strip.
-
-        // That's where Canvas.translate(x, y) becomes very helpful.
-        // This is the situation :
-        //  _______________________________________________
-        // |   			 |					 			   |
-        // | the actual  |					The big strip  |
-        // |	canvas	 | 								   |
-        // |_____________|								   |
-        // |_______________________________________________|
-        //
-        // If the rendered part is on the bottom right corner of the strip
-        // we can draw it but we won't see it because the canvas is not big enough.
-
-        // But if we call translate(-X, -Y) on the canvas just before drawing the object :
-        //  _______________________________________________
-        // |   			  					  _____________|
-        // |   The big strip     			 |			   |
-        // |		    					 |	the actual |
-        // |								 |	canvas	   |
-        // |_________________________________|_____________|
-        //
-        // The object will be on the canvas.
-        // This technique is massively used in this method, and allows
-        // abstraction of the screen position when rendering the parts.
-
-        // Draws background
-      /*  Drawable bg = getBackground();
-        Log.d("startDrawPdf", Long.toString(System.currentTimeMillis()));
-        if (bg == null) {
-            canvas.drawColor(Color.WHITE);
-        } else {
-            bg.draw(canvas);
+        if (surfaceView != null) {
+            surfaceView.resume();
         }
-
-
-        if (recycled) {
-            return;
-        }
-
-        if (state != State.SHOWN && readyBitmap == null) {
-            return;
-        }
-
-        // Moves the canvas before drawing any element
-        float currentXOffset = this.currentXOffset;
-        float currentYOffset = this.currentYOffset;
-        canvas.translate(currentXOffset, currentYOffset);
-        if (readyBitmap == null) {
-            // Draws thumbnails
-            for (PagePart part : cacheManager.getThumbnails()) {
-                Log.d("progressDrawPdf0", Long.toString(System.currentTimeMillis()));
-                drawPart(canvas, part);
-            }
-
-            // Draws parts
-            if (!cacheManager.getPageParts().isEmpty()) {
-                bitmapRatio = ((float) cacheManager.getPageParts().get(0).getRenderedBitmap().getHeight()) /
-                        ((float) cacheManager.getPageParts().get(0).getRenderedBitmap().getWidth());
-            }
-            if (onDrawBitmapCompleteListener != null) {
-                onDrawBitmapCompleteListener.loadComplete(0);
-                onDrawBitmapCompleteListener = null;
-            }
-            for (PagePart part : cacheManager.getPageParts()) {
-                Log.d("progressDrawPdf1", Long.toString(System.currentTimeMillis()));
-                drawPart(canvas, part);
-            }
-
-        } else {
-            drawBitmap(canvas, readyBitmap);
-        }
-
-        Log.d("endDrawPdf", Long.toString(System.currentTimeMillis()));
-        // Draws the user layer
-        if (onDrawListener != null) {
-            canvas.translate(toCurrentScale(currentFilteredPage * optimalPageWidth), 0);
-
-            onDrawListener.onLayerDrawn(canvas, //
-                    toCurrentScale(optimalPageWidth), //
-                    toCurrentScale(optimalPageHeight),
-                    currentPage);
-
-            canvas.translate(-toCurrentScale(currentFilteredPage * optimalPageWidth), 0);
-        }
-
-        // Restores the canvas position
-        canvas.translate(-currentXOffset, -currentYOffset);*/
     }
 
+    private ExtSurfaceView surfaceView;
 
     public float getBitmapRatio() {
         return bitmapRatio;
@@ -857,8 +766,7 @@ public class PDFView extends RelativeLayout {
         if (renderedBitmap.isRecycled()) {
             return;
         }
-        bitmapRatio = (1.0f / MathUtils.ceil(getOptimalPageHeight() / 256.0f)) / (1.0f / MathUtils.ceil(getOptimalPageWidth() / 256.0f));
-        ;
+        bitmapRatio = (1.0f / MathUtils.ceil(getOptimalPageHeight() / 256.0f))/(1.0f / MathUtils.ceil(getOptimalPageWidth() / 256.0f));;
         // Move to the target page
         float localTranslationX = 0;
         float localTranslationY = 0;
@@ -936,7 +844,7 @@ public class PDFView extends RelativeLayout {
         // We assume all the pages are the same size
         this.pdfDocument = pdfDocument;
         if (allPages)
-            pdfiumCore.openPage(pdfDocument, 0, this.documentPageCount - 1);
+            pdfiumCore.openPage(pdfDocument, 0, this.documentPageCount-1);
         else
             pdfiumCore.openPage(pdfDocument, firstPageIdx);
         this.pageWidth = pdfiumCore.getPageWidth(pdfDocument, firstPageIdx);
@@ -944,6 +852,7 @@ public class PDFView extends RelativeLayout {
         calculateOptimalWidthAndHeight();
 
         pagesLoader = new PagesLoader(this);
+
 
 
         float ratioX = 1f / getOptimalPageWidth();
@@ -954,7 +863,7 @@ public class PDFView extends RelativeLayout {
         final int nbCols = MathUtils.ceil(1f / partWidth);
         final float scaledHeight = getOptimalPageHeight();
         final float scaledWidth = getOptimalPageWidth();
-        bitmapRatio = (1.0f / MathUtils.ceil(getOptimalPageHeight() / 256.0f)) / (1.0f / MathUtils.ceil(getOptimalPageWidth() / 256.0f));
+        bitmapRatio = (1.0f / MathUtils.ceil(getOptimalPageHeight() / 256.0f))/(1.0f / MathUtils.ceil(getOptimalPageWidth() / 256.0f));
 
 
         renderingAsyncTask = new RenderingAsyncTask(this, pdfiumCore, pdfDocument);
