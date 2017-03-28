@@ -606,7 +606,7 @@ public class PDFView extends RelativeLayout {
                     Canvas canvas = mSurfaceHolder.lockCanvas();
 
 
-                    if (isInEditMode()) {
+                    if (surfaceView.isInEditMode()) {
                         mSurfaceHolder.unlockCanvasAndPost(canvas);
                         return;
                     }
