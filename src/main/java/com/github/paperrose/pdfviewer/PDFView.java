@@ -614,6 +614,7 @@ public class PDFView extends RelativeLayout {
 
             // Restores the canvas position
             canvas.translate(-currentXOffset, -currentYOffset);
+            drawThread.setRunning(false);
         }
 
 
