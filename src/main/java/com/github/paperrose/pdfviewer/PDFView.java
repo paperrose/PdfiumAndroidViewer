@@ -548,14 +548,15 @@ public class PDFView extends RelativeLayout {
 
 
         public void sdraw(Canvas canvas) {
-            if (isInEditMode()) {
+            if (ExtSurfaceView.this.isInEditMode()) {
                 return;
             }
-
+            if (canvas == null) return;
             // Draws background
             Drawable bg = getBackground();
             Log.d("startDrawPdf", Long.toString(System.currentTimeMillis()));
             if (bg == null) {
+
                 canvas.drawColor(Color.WHITE);
             } else {
                 bg.draw(canvas);
