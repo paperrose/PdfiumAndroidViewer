@@ -601,47 +601,48 @@ public class PDFView extends RelativeLayout {
 
         @Override
         public void run() {
-            while(running) {
-                synchronized (mSurfaceHolder) {
-                    if (mSurfaceHolder.getSurface().isValid()) {
-                        Canvas canvas = mSurfaceHolder.lockCanvas();
+            while(running){
+                if(mSurfaceHolder.getSurface().isValid()){
+                    Canvas canvas = mSurfaceHolder.lockCanvas();
 
 
-                        if (surfaceView.isInEditMode()) {
-                            mSurfaceHolder.unlockCanvasAndPost(canvas);
-                            return;
-                        }
+                    if (surfaceView.isInEditMode()) {
+                        mSurfaceHolder.unlockCanvasAndPost(canvas);
+                        return;
+                    }
 
-                        // Draws background
-                        Drawable bg = getBackground();
-                        Log.d("startDrawPdf", Long.toString(System.currentTimeMillis()));
-                        if (bg == null) {
-                            canvas.drawColor(Color.BLACK);
-                        } else {
-                            bg.draw(canvas);
-                        }
+                    // Draws background
+                    Drawable bg = getBackground();
+                    Log.d("startDrawPdf", Long.toString(System.currentTimeMillis()));
+                    if (bg == null) {
+                        canvas.drawColor(Color.BLACK);
+                    } else {
+                        bg.draw(canvas);
+                    }
 
 
-                        if (recycled) {
-                            mSurfaceHolder.unlockCanvasAndPost(canvas);
-                            return;
-                        }
+                    if (recycled) {
+                        mSurfaceHolder.unlockCanvasAndPost(canvas);
+                        return;
+                    }
 
-                        if (state != State.SHOWN && readyBitmap == null) {
-                            mSurfaceHolder.unlockCanvasAndPost(canvas);
-                            return;
-                        }
+                    if (state != State.SHOWN && readyBitmap == null) {
+                        mSurfaceHolder.unlockCanvasAndPost(canvas);
+                        return;
+                    }
 
-                        // Moves the canvas before drawing any element
-                        float currentXOffset = PDFView.this.currentXOffset;
-                        float currentYOffset = PDFView.this.currentYOffset;
-                        canvas.translate(currentXOffset, currentYOffset);
+                    // Moves the canvas before drawing any element
+                    float currentXOffset = PDFView.this.currentXOffset;
+                    float currentYOffset = PDFView.this.currentYOffset;
+                    canvas.translate(currentXOffset, currentYOffset);
 
-                        if (readyBitmap == null) {
-                            // Draws thumbnails
+                    if (readyBitmap == null) {
+                        // Draws thumbnails
+                        synchronized (mSurfaceHolder) {
                             for (PagePart part : cacheManager.getThumbnails()) {
                                 drawPart(canvas, part);
                             }
+
 
                             // Draws parts
                             if (!cacheManager.getPageParts().isEmpty()) {
@@ -655,31 +656,30 @@ public class PDFView extends RelativeLayout {
                             for (PagePart part : cacheManager.getPageParts()) {
                                 drawPart(canvas, part);
                             }
-
-                        } else {
-                            drawBitmap(canvas, readyBitmap);
                         }
-
-                        Log.d("endDrawPdf", Long.toString(System.currentTimeMillis()));
-                        // Draws the user layer
-                        if (onDrawListener != null) {
-                            canvas.translate(toCurrentScale(currentFilteredPage * optimalPageWidth), 0);
-
-                            onDrawListener.onLayerDrawn(canvas, //
-                                    toCurrentScale(optimalPageWidth), //
-                                    toCurrentScale(optimalPageHeight),
-                                    currentPage);
-
-                            canvas.translate(-toCurrentScale(currentFilteredPage * optimalPageWidth), 0);
-                        }
-
-                        // Restores the canvas position
-                        canvas.translate(-currentXOffset, -currentYOffset);
-
-
-                        mSurfaceHolder.unlockCanvasAndPost(canvas);
-                        pause();
+                    } else {
+                        drawBitmap(canvas, readyBitmap);
                     }
+
+                    Log.d("endDrawPdf", Long.toString(System.currentTimeMillis()));
+                    // Draws the user layer
+                    if (onDrawListener != null) {
+                        canvas.translate(toCurrentScale(currentFilteredPage * optimalPageWidth), 0);
+
+                        onDrawListener.onLayerDrawn(canvas, //
+                                toCurrentScale(optimalPageWidth), //
+                                toCurrentScale(optimalPageHeight),
+                                currentPage);
+
+                        canvas.translate(-toCurrentScale(currentFilteredPage * optimalPageWidth), 0);
+                    }
+
+                    // Restores the canvas position
+                    canvas.translate(-currentXOffset, -currentYOffset);
+
+
+                    mSurfaceHolder.unlockCanvasAndPost(canvas);
+                    pause();
                 }
             }
         }
