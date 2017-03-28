@@ -564,7 +564,7 @@ public class PDFView extends RelativeLayout {
 
         // Draws background
         Drawable bg = getBackground();
-        Log.d("startDrawPdf", Long.toString(System.nanoTime()));
+        Log.d("startDrawPdf", Long.toString(System.currentTimeMillis()));
         if (bg == null) {
             canvas.drawColor(Color.WHITE);
         } else {
@@ -587,6 +587,7 @@ public class PDFView extends RelativeLayout {
         if (readyBitmap == null) {
             // Draws thumbnails
             for (PagePart part : cacheManager.getThumbnails()) {
+                Log.d("progressDrawPdf0", Long.toString(System.currentTimeMillis()));
                 drawPart(canvas, part);
             }
 
@@ -600,6 +601,7 @@ public class PDFView extends RelativeLayout {
                 onDrawBitmapCompleteListener = null;
             }
             for (PagePart part : cacheManager.getPageParts()) {
+                Log.d("progressDrawPdf1", Long.toString(System.currentTimeMillis()));
                 drawPart(canvas, part);
             }
 
@@ -607,7 +609,7 @@ public class PDFView extends RelativeLayout {
             drawBitmap(canvas, readyBitmap);
         }
 
-        Log.d("endDrawPdf", Long.toString(System.nanoTime()));
+        Log.d("endDrawPdf", Long.toString(System.currentTimeMillis()));
         // Draws the user layer
         if (onDrawListener != null) {
             canvas.translate(toCurrentScale(currentFilteredPage * optimalPageWidth), 0);
