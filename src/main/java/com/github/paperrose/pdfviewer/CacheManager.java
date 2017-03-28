@@ -34,9 +34,9 @@ class CacheManager {
 
     private final PriorityQueue<PagePart> activeCache;
 
-    private final List<PagePart> thumbnails;
+    public final List<PagePart> thumbnails;
 
-    private final Object passiveActiveLock = new Object();
+    public final Object passiveActiveLock = new Object();
 
     private final PagePartComparator comparator = new PagePartComparator();
 
