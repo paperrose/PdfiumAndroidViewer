@@ -35,6 +35,7 @@ class RenderingAsyncTask extends AsyncTask<Void, PagePart, Void> {
 
     private PdfiumCore pdfiumCore;
     private PdfDocument pdfDocument;
+    private PdfDocument pdfRightDocument = null;
 
     private final List<RenderingTask> renderingTasks;
     private PDFView pdfView;
@@ -44,16 +45,23 @@ class RenderingAsyncTask extends AsyncTask<Void, PagePart, Void> {
     private Matrix renderMatrix = new Matrix();
     private final Set<Integer> openedPages = new HashSet<>();
 
-    public RenderingAsyncTask(PDFView pdfView, PdfiumCore pdfiumCore, PdfDocument pdfDocument) {
+    public RenderingAsyncTask(PDFView pdfView, PdfiumCore pdfiumCore, PdfDocument pdfDocument, PdfDocument pdfRightDocument) {
         this.pdfView = pdfView;
         this.pdfiumCore = pdfiumCore;
         this.pdfDocument = pdfDocument;
+        this.pdfRightDocument = pdfRightDocument;
         this.renderingTasks = Collections.synchronizedList(new ArrayList<RenderingTask>());
 
     }
 
     public void addRenderingTask(int userPage, int page, float width, float height, RectF bounds, boolean thumbnail, int cacheOrder, boolean bestQuality, boolean annotationRendering) {
         RenderingTask task = new RenderingTask(width, height, bounds, userPage, page, thumbnail, cacheOrder, bestQuality, annotationRendering);
+        renderingTasks.add(task);
+        wakeUp();
+    }
+
+    public void addRenderingTask(int userPage, int page, float width, float height, RectF bounds, boolean thumbnail, int cacheOrder, boolean bestQuality, boolean annotationRendering, boolean rightPage, int row, int col) {
+        RenderingTask task = new RenderingTask(width, height, bounds, userPage, page, thumbnail, cacheOrder, bestQuality, annotationRendering, rightPage, row, col);
         renderingTasks.add(task);
         wakeUp();
     }
@@ -123,7 +131,7 @@ class RenderingAsyncTask extends AsyncTask<Void, PagePart, Void> {
         calculateBounds(w, h, renderingTask.bounds);
 
         if (!isCancelled()) {
-            pdfiumCore.renderPageBitmap(pdfDocument, render, renderingTask.page,
+            pdfiumCore.renderPageBitmap(renderingTask.rightPage ? pdfRightDocument : pdfDocument, render, renderingTask.page,
                     roundedRenderBounds.left, roundedRenderBounds.top,
                     roundedRenderBounds.width(), roundedRenderBounds.height(), renderingTask.annotationRendering);
         } else {
@@ -136,11 +144,13 @@ class RenderingAsyncTask extends AsyncTask<Void, PagePart, Void> {
             render.recycle();
             render = cpy;
         }
-
-        return new PagePart(renderingTask.userPage, renderingTask.page, render, //
+        PagePart pp = new PagePart(renderingTask.userPage, renderingTask.page, render, //
                 renderingTask.width, renderingTask.height, //
                 renderingTask.bounds, renderingTask.thumbnail, //
-                renderingTask.cacheOrder);
+                renderingTask.cacheOrder, renderingTask.rightPage);
+        pp.row = renderingTask.row;
+        pp.col = renderingTask.col;
+        return pp;
     }
 
     private void calculateBounds(int width, int height, RectF pageSliceBounds) {
@@ -179,7 +189,12 @@ class RenderingAsyncTask extends AsyncTask<Void, PagePart, Void> {
 
         int cacheOrder;
 
+        public int row;
+        public int col;
+
         boolean bestQuality;
+
+        boolean rightPage = false;
 
         boolean annotationRendering;
 
@@ -190,6 +205,22 @@ class RenderingAsyncTask extends AsyncTask<Void, PagePart, Void> {
             this.height = height;
             this.bounds = bounds;
             this.userPage = userPage;
+            this.thumbnail = thumbnail;
+            this.cacheOrder = cacheOrder;
+            this.bestQuality = bestQuality;
+            this.annotationRendering = annotationRendering;
+        }
+
+        public RenderingTask(float width, float height, RectF bounds, int userPage, int page, boolean thumbnail, int cacheOrder, boolean bestQuality, boolean annotationRendering, boolean rightPage, int row, int col) {
+            super();
+            this.page = page;
+            this.width = width;
+            this.rightPage = rightPage;
+            this.height = height;
+            this.bounds = bounds;
+            this.userPage = userPage;
+            this.row = row;
+            this.col = col;
             this.thumbnail = thumbnail;
             this.cacheOrder = cacheOrder;
             this.bestQuality = bestQuality;

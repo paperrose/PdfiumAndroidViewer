@@ -84,12 +84,12 @@ class PagesLoader {
         return holder;
     }
 
-    private void loadThumbnail(int userPage, int documentPage) {
+    private void loadThumbnail(int userPage, int documentPage, boolean rightPage) {
         if (!pdfView.cacheManager.containsThumbnail(userPage, documentPage,
-                thumbnailWidth, thumbnailHeight, thumbnailRect)) {
+                thumbnailWidth, thumbnailHeight, thumbnailRect, rightPage)) {
             pdfView.renderingAsyncTask.addRenderingTask(userPage, documentPage,
                     thumbnailWidth, thumbnailHeight, thumbnailRect,
-                    true, 0, pdfView.isBestQuality(), pdfView.isAnnotationRendering());
+                    true, 0, pdfView.isBestQuality(), pdfView.isAnnotationRendering(), rightPage, -1, -1);
         }
     }
 
@@ -113,7 +113,8 @@ class PagesLoader {
         if (documentPage < 0) {
             return 0;
         }
-        loadThumbnail(holder.page, documentPage);
+        loadThumbnail(holder.page, documentPage, false);
+        loadThumbnail(holder.page, documentPage, true);
 
         if (pdfView.isSwipeVertical()) {
             int firstCol = MathUtils.floor(xOffset / colWidth);
@@ -186,20 +187,22 @@ class PagesLoader {
         }
         int prevDocPage = documentPage(firstHolder.page - 1);
         if (prevDocPage >= 0) {
-            loadThumbnail(firstHolder.page - 1, prevDocPage);
+            loadThumbnail(firstHolder.page - 1, prevDocPage, true);
+            loadThumbnail(firstHolder.page - 1, prevDocPage, false);
         }
         int nextDocPage = documentPage(firstHolder.page + 1);
         if (nextDocPage >= 0) {
-            loadThumbnail(firstHolder.page + 1, nextDocPage);
+            loadThumbnail(firstHolder.page + 1, nextDocPage, true);
+            loadThumbnail(firstHolder.page + 1, nextDocPage, false);
         }
         return parts;
     }
 
     private boolean loadCell(int userPage, int documentPage, int row, int col, float pageRelativePartWidth, float pageRelativePartHeight) {
 
-        float relX = pageRelativePartWidth * col;
+        float relX = pageRelativePartWidth * 2*(col % (colsRows.first/2));
         float relY = pageRelativePartHeight * row;
-        float relWidth = pageRelativePartWidth;
+        float relWidth = pageRelativePartWidth * 2;
         float relHeight = pageRelativePartHeight;
 
         // Adjust width and height to
@@ -217,10 +220,10 @@ class PagesLoader {
         RectF pageRelativeBounds = new RectF(relX, relY, relX + relWidth, relY + relHeight);
 
         if (renderWidth > 0 && renderHeight > 0) {
-            if (!pdfView.cacheManager.upPartIfContained(userPage, documentPage, renderWidth, renderHeight, pageRelativeBounds, cacheOrder)) {
+            if (!pdfView.cacheManager.upPartIfContained(userPage, documentPage, renderWidth, renderHeight, pageRelativeBounds, cacheOrder, col >= colsRows.first/2)) {
                 pdfView.renderingAsyncTask.addRenderingTask(userPage, documentPage,
                         renderWidth, renderHeight, pageRelativeBounds, false, cacheOrder,
-                        pdfView.isBestQuality(), pdfView.isAnnotationRendering());
+                        pdfView.isBestQuality(), pdfView.isAnnotationRendering(), col >= colsRows.first/2, row, col);
             }
 
             cacheOrder++;

@@ -91,8 +91,8 @@ class CacheManager {
 
     }
 
-    public boolean upPartIfContained(int userPage, int page, float width, float height, RectF pageRelativeBounds, int toOrder) {
-        PagePart fakePart = new PagePart(userPage, page, null, width, height, pageRelativeBounds, false, 0);
+    public boolean upPartIfContained(int userPage, int page, float width, float height, RectF pageRelativeBounds, int toOrder, boolean rightPage) {
+        PagePart fakePart = new PagePart(userPage, page, null, width, height, pageRelativeBounds, false, 0, rightPage);
 
         PagePart found;
         synchronized (passiveActiveLock) {
@@ -110,8 +110,8 @@ class CacheManager {
     /**
      * Return true if already contains the described PagePart
      */
-    public boolean containsThumbnail(int userPage, int page, float width, float height, RectF pageRelativeBounds) {
-        PagePart fakePart = new PagePart(userPage, page, null, width, height, pageRelativeBounds, true, 0);
+    public boolean containsThumbnail(int userPage, int page, float width, float height, RectF pageRelativeBounds, boolean rightPage) {
+        PagePart fakePart = new PagePart(userPage, page, null, width, height, pageRelativeBounds, true, 0, rightPage);
         synchronized (thumbnails) {
             for (PagePart part : thumbnails) {
                 if (part.equals(fakePart)) {
