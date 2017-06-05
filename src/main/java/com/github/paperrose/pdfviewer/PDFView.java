@@ -30,10 +30,7 @@ import android.os.AsyncTask;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.util.Pair;
-import android.view.SurfaceHolder;
-import android.view.SurfaceView;
 import android.view.View;
-import android.view.ViewGroup;
 import android.widget.RelativeLayout;
 
 import com.github.paperrose.pdfviewer.exception.FileNotFoundException;
@@ -256,8 +253,6 @@ public class PDFView extends RelativeLayout {
     /**
      * Construct the initial view
      */
-
-
     public PDFView(Context context, AttributeSet set) {
         super(context, set);
 
@@ -275,9 +270,6 @@ public class PDFView extends RelativeLayout {
 
         pdfiumCore = new PdfiumCore(context);
         setWillNotDraw(false);
-        surfaceView = new ExtSurfaceView(context);
-        surfaceView.setLayoutParams(new LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
-        addView(surfaceView);
     }
 
     private void load(String path, String rpath, boolean isAsset, String password, OnLoadCompleteListener listener, OnLoadCompleteListener onDrawBitmapCompleteListener, OnErrorListener onErrorListener) {
@@ -562,176 +554,44 @@ public class PDFView extends RelativeLayout {
             moveTo(calculateCenterOffsetForPage(currentFilteredPage), currentYOffset);
     }
 
-    private Object lock;
-
-    public boolean twoPageMode = false;
-
-    public class ExtSurfaceView extends SurfaceView implements Runnable, SurfaceHolder.Callback {
-
-        Thread mThread;
-        SurfaceHolder mSurfaceHolder;
-        volatile boolean running = false;
-
-
-        public ExtSurfaceView(Context context) {
-            super(context);
-            init();
-        }
-
-        public ExtSurfaceView(Context context, AttributeSet attrs) {
-            super(context, attrs);
-            init();
-        }
-
-        public ExtSurfaceView(Context context, AttributeSet attrs, int defStyleAttr) {
-            super(context, attrs, defStyleAttr);
-            init();
-        }
-
-        public void resume() {
-            running = true;
-            mThread = new Thread(this);
-            mThread.start();
-        }
-
-
-        public void pause() {
-            boolean retry = true;
-            running = false;
-            while (retry) {
-                try {
-                    mThread.join();
-                    retry = false;
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                }
-            }
-        }
-
-        public void init() {
-            mSurfaceHolder = getHolder();
-            mSurfaceHolder.addCallback(this);
-        }
-
-        @Override
-        public void surfaceCreated(SurfaceHolder holder) {
-            this.resume();
-        }
-
-        @Override
-        public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
-
-        }
-
-        @Override
-        public void surfaceDestroyed(SurfaceHolder holder) {
-
-        }
-
-
-        @Override
-        public void run() {
-            while (running) {
-                if (mSurfaceHolder.getSurface().isValid()) {
-                    Canvas canvas = mSurfaceHolder.lockCanvas();
-
-
-                    if (surfaceView.isInEditMode()) {
-                        mSurfaceHolder.unlockCanvasAndPost(canvas);
-                        return;
-                    }
-
-                    // Draws background
-                    Drawable bg = getBackground();
-                    Log.d("startDrawPdf", Long.toString(System.currentTimeMillis()));
-                    if (bg == null) {
-                        canvas.drawColor(Color.BLACK);
-                    } else {
-                        bg.draw(canvas);
-                    }
-
-
-                    if (recycled) {
-                        mSurfaceHolder.unlockCanvasAndPost(canvas);
-                        return;
-                    }
-
-                    if (state != State.SHOWN && readyBitmap == null) {
-                        mSurfaceHolder.unlockCanvasAndPost(canvas);
-                        return;
-                    }
-
-                    // Moves the canvas before drawing any element
-                    float currentXOffset = PDFView.this.currentXOffset;
-                    float currentYOffset = PDFView.this.currentYOffset;
-                    canvas.translate(currentXOffset, currentYOffset);
-
-                    if (readyBitmap == null) {
-                        // Draws thumbnails
-                        synchronized (cacheManager.thumbnails) {
-                            for (PagePart part : cacheManager.thumbnails) {
-                                drawPart(canvas, part);
-                            }
-                        }
-
-                        // Draws parts
-                        synchronized (cacheManager.passiveActiveLock) {
-                            if (!cacheManager.getPageParts().isEmpty()) {
-                                bitmapRatio = ((float) cacheManager.getPageParts().get(0).getRenderedBitmap().getHeight()) /
-                                        ((float) cacheManager.getPageParts().get(0).getRenderedBitmap().getWidth());
-                            }
-                        }
-                        if (onDrawBitmapCompleteListener != null) {
-                            onDrawBitmapCompleteListener.loadComplete(0);
-                            onDrawBitmapCompleteListener = null;
-                        }
-                        synchronized (cacheManager.passiveActiveLock) {
-                            for (PagePart part : cacheManager.getPageParts()) {
-                                drawPart(canvas, part);
-                            }
-                        }
-                    } else {
-                        drawBitmap(canvas, readyBitmap);
-                    }
-
-                    Log.d("endDrawPdf", Long.toString(System.currentTimeMillis()));
-                    // Draws the user layer
-                    if (onDrawListener != null) {
-                        canvas.translate(toCurrentScale(currentFilteredPage * optimalPageWidth), 0);
-
-                        onDrawListener.onLayerDrawn(canvas, //
-                                toCurrentScale(optimalPageWidth), //
-                                toCurrentScale(optimalPageHeight),
-                                currentPage);
-
-                        canvas.translate(-toCurrentScale(currentFilteredPage * optimalPageWidth), 0);
-                    }
-
-                    // Restores the canvas position
-                    canvas.translate(-currentXOffset, -currentYOffset);
-
-
-                    mSurfaceHolder.unlockCanvasAndPost(canvas);
-                    pause();
-                }
-            }
-        }
-    }
-
     @Override
     protected void onDraw(Canvas canvas) {
-        if (surfaceView != null) {
-            surfaceView.resume();
-        }
-
         if (isInEditMode()) {
             return;
         }
+        // As I said in this class javadoc, we can think of this canvas as a huge
+        // strip on which we draw all the images. We actually only draw the rendered
+        // parts, of course, but we render them in the place they belong in this huge
+        // strip.
+
+        // That's where Canvas.translate(x, y) becomes very helpful.
+        // This is the situation :
+        //  _______________________________________________
+        // |   			 |					 			   |
+        // | the actual  |					The big strip  |
+        // |	canvas	 | 								   |
+        // |_____________|								   |
+        // |_______________________________________________|
+        //
+        // If the rendered part is on the bottom right corner of the strip
+        // we can draw it but we won't see it because the canvas is not big enough.
+
+        // But if we call translate(-X, -Y) on the canvas just before drawing the object :
+        //  _______________________________________________
+        // |   			  					  _____________|
+        // |   The big strip     			 |			   |
+        // |		    					 |	the actual |
+        // |								 |	canvas	   |
+        // |_________________________________|_____________|
+        //
+        // The object will be on the canvas.
+        // This technique is massively used in this method, and allows
+        // abstraction of the screen position when rendering the parts.
 
         // Draws background
         Drawable bg = getBackground();
         if (bg == null) {
-            canvas.drawColor(Color.BLACK);
+            canvas.drawColor(Color.WHITE);
         } else {
             bg.draw(canvas);
         }
@@ -741,17 +601,37 @@ public class PDFView extends RelativeLayout {
             return;
         }
 
-        if (readyBitmap == null) {
+        if (state != State.SHOWN && readyBitmap == null) {
             return;
         }
 
-
-        float currentXOffset = PDFView.this.currentXOffset;
-        float currentYOffset = PDFView.this.currentYOffset;
+        // Moves the canvas before drawing any element
+        float currentXOffset = this.currentXOffset;
+        float currentYOffset = this.currentYOffset;
         canvas.translate(currentXOffset, currentYOffset);
+        if (readyBitmap == null) {
+            // Draws thumbnails
+            for (PagePart part : cacheManager.getThumbnails()) {
+                drawPart(canvas, part);
+            }
 
-        drawBitmap(canvas, readyBitmap);
+            // Draws parts
+            if (!cacheManager.getPageParts().isEmpty()) {
+                bitmapRatio = ((float) cacheManager.getPageParts().get(0).getRenderedBitmap().getHeight()) /
+                        ((float) cacheManager.getPageParts().get(0).getRenderedBitmap().getWidth());
+            }
+            if (onDrawBitmapCompleteListener != null) {
+                onDrawBitmapCompleteListener.loadComplete(0);
+                onDrawBitmapCompleteListener = null;
+            }
+            for (PagePart part : cacheManager.getPageParts()) {
+                drawPart(canvas, part);
+            }
 
+        } else {
+            drawBitmap(canvas, readyBitmap);
+        }
+        // Draws the user layer
         if (onDrawListener != null) {
             canvas.translate(toCurrentScale(currentFilteredPage * optimalPageWidth), 0);
 
@@ -762,18 +642,18 @@ public class PDFView extends RelativeLayout {
 
             canvas.translate(-toCurrentScale(currentFilteredPage * optimalPageWidth), 0);
         }
+
+        // Restores the canvas position
         canvas.translate(-currentXOffset, -currentYOffset);
-
-
     }
 
-    private ExtSurfaceView surfaceView;
 
     public float getBitmapRatio() {
         return bitmapRatio;
     }
-
+    public boolean twoPageMode = false;
     private float bitmapRatio = 0;
+
 
     /**
      * Draw a given PagePart on the canvas
@@ -849,7 +729,6 @@ public class PDFView extends RelativeLayout {
             return;
         }
         bitmapRatio = (1.0f / MathUtils.ceil(getOptimalPageHeight() / 256.0f)) / (1.0f / MathUtils.ceil(getOptimalPageWidth() / 256.0f));
-        ;
         // Move to the target page
         float localTranslationX = 0;
         float localTranslationY = 0;
