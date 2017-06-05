@@ -790,7 +790,7 @@ public class PDFView extends RelativeLayout {
         renderingAsyncTask.removeAllTasks();
         cacheManager.makeANewSet();
 
-        pagesLoader.loadPages();
+        pagesLoader.loadPages(twoPageMode);
         redraw();
     }
 
