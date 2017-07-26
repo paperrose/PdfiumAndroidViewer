@@ -114,7 +114,8 @@ class PagesLoader {
             return 0;
         }
         loadThumbnail(holder.page, documentPage, false);
-        loadThumbnail(holder.page, documentPage, true);
+        if (twoPagesMode)
+            loadThumbnail(holder.page, documentPage, true);
 
         if (pdfView.isSwipeVertical()) {
             int firstCol = MathUtils.floor(xOffset / colWidth);
@@ -187,12 +188,14 @@ class PagesLoader {
         }
         int prevDocPage = documentPage(firstHolder.page - 1);
         if (prevDocPage >= 0) {
-            loadThumbnail(firstHolder.page - 1, prevDocPage, true);
+            if (twoPagesMode)
+                loadThumbnail(firstHolder.page - 1, prevDocPage, true);
             loadThumbnail(firstHolder.page - 1, prevDocPage, false);
         }
         int nextDocPage = documentPage(firstHolder.page + 1);
         if (nextDocPage >= 0) {
-            loadThumbnail(firstHolder.page + 1, nextDocPage, true);
+            if (twoPagesMode)
+                loadThumbnail(firstHolder.page + 1, nextDocPage, true);
             loadThumbnail(firstHolder.page + 1, nextDocPage, false);
         }
         return parts;
