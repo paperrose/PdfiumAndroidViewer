@@ -688,7 +688,7 @@ public class PDFView extends RelativeLayout {
                 : toCurrentScale(pageRelativeBounds.left * optimalPageWidth);
         float offsetY = toCurrentScale(pageRelativeBounds.top * optimalPageHeight);
         float width = twoPageMode? toCurrentScale(pageRelativeBounds.width() * optimalPageWidth/2) :
-                toCurrentScale(pageRelativeBounds.width() * optimalPageWidth/2);
+                toCurrentScale(pageRelativeBounds.width() * optimalPageWidth);
         float height = toCurrentScale(pageRelativeBounds.height() * optimalPageHeight);
 
         // If we use float values for this rectangle, there will be
