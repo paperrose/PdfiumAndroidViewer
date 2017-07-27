@@ -1,12 +1,12 @@
 /**
  * Copyright 2016 Bartosz Schiller
- * <p/>
+ * <p>
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * <p/>
+ * <p>
  * http://www.apache.org/licenses/LICENSE-2.0
- * <p/>
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -30,7 +30,6 @@ import android.os.AsyncTask;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.util.Pair;
-import android.view.View;
 import android.widget.RelativeLayout;
 
 import com.github.paperrose.pdfviewer.exception.FileNotFoundException;
@@ -39,8 +38,8 @@ import com.github.paperrose.pdfviewer.listener.OnErrorListener;
 import com.github.paperrose.pdfviewer.listener.OnLoadCompleteListener;
 import com.github.paperrose.pdfviewer.listener.OnPageChangeListener;
 import com.github.paperrose.pdfviewer.listener.OnPageScrollListener;
-import com.github.paperrose.pdfviewer.model.PagePart;
-import com.github.paperrose.pdfviewer.scroll.ScrollHandle;
+import com.github.paperrose.pdfviewer.model.DoublePagePart;
+import com.github.paperrose.pdfviewer.scroll.DoubleScrollHandle;
 import com.github.paperrose.pdfviewer.util.ArrayUtils;
 import com.github.paperrose.pdfviewer.util.Constants;
 import com.github.paperrose.pdfviewer.util.MathUtils;
@@ -51,11 +50,13 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
-public class PDFView extends RelativeLayout {
+public class DoublePDFView extends RelativeLayout {
 
-    private static final String TAG = PDFView.class.getSimpleName();
+    private static final String TAG = DoublePDFView.class.getSimpleName();
 
     public static final float DEFAULT_MAX_SCALE = 3.0f;
     public static final float DEFAULT_MID_SCALE = 1.75f;
@@ -80,20 +81,17 @@ public class PDFView extends RelativeLayout {
 
     private ScrollDir scrollDir = ScrollDir.NONE;
 
-    /**
-     * Rendered parts go to the cache manager
-     */
-    CacheManager cacheManager;
+    DoubleCacheManager cacheManager;
 
     /**
      * Animation manager manage all offset and zoom animation
      */
-    private AnimationManager animationManager;
+    private DoubleAnimationManager animationManager;
 
     /**
      * Drag manager manage all touch events
      */
-    private DragPinchManager dragPinchManager;
+    private DoubleDragPinchManager dragPinchManager;
 
     /**
      * The pages the user want to display in order
@@ -131,12 +129,12 @@ public class PDFView extends RelativeLayout {
     /**
      * The actual width and height of the pages in the PDF document
      */
-    private int pageWidth, pageHeight;
+    private int pageWidth, pageRightWidth, pageHeight;
 
     /**
      * The optimal width and height of the pages to fit the component size
      */
-    private float optimalPageWidth, optimalPageHeight;
+    private float optimalPageWidth, optimalPageRightWidth, optimalPageHeight;
 
     /**
      * If you picture all the pages side by side in their optimal width,
@@ -170,14 +168,14 @@ public class PDFView extends RelativeLayout {
     /**
      * Async task used during the loading phase to decode a PDF document
      */
-    private DecodingAsyncTask decodingAsyncTask;
+    private DoubleDecodingAsyncTask decodingAsyncTask;
 
     /**
      * Async task always playing in the background and proceeding rendering tasks
      */
-    RenderingAsyncTask renderingAsyncTask;
+    DoubleRenderingAsyncTask renderingAsyncTask;
 
-    private PagesLoader pagesLoader;
+    private DoublePagesLoader pagesLoader;
 
     /**
      * Call back object to call when the PDF is loaded
@@ -228,11 +226,14 @@ public class PDFView extends RelativeLayout {
 
     private PdfDocument pdfDocument;
 
-    private ScrollHandle scrollHandle;
+
+    private PdfDocument pdfRightDocument;
+
+    private DoubleScrollHandle scrollHandle;
 
     private boolean isScrollHandleInit = false;
 
-    ScrollHandle getScrollHandle() {
+    DoubleScrollHandle getScrollHandle() {
         return scrollHandle;
     }
 
@@ -251,16 +252,16 @@ public class PDFView extends RelativeLayout {
     /**
      * Construct the initial view
      */
-    public PDFView(Context context, AttributeSet set) {
+    public DoublePDFView(Context context, AttributeSet set) {
         super(context, set);
 
         if (isInEditMode()) {
             return;
         }
 
-        cacheManager = new CacheManager();
-        animationManager = new AnimationManager(this);
-        dragPinchManager = new DragPinchManager(this, animationManager);
+        cacheManager = new DoubleCacheManager();
+        animationManager = new DoubleAnimationManager(this);
+        dragPinchManager = new DoubleDragPinchManager(this, animationManager);
 
         paint = new Paint();
         debugPaint = new Paint();
@@ -270,8 +271,8 @@ public class PDFView extends RelativeLayout {
         setWillNotDraw(false);
     }
 
-    private void load(String path, boolean isAsset, String password, OnLoadCompleteListener listener, OnLoadCompleteListener onDrawBitmapCompleteListener, OnErrorListener onErrorListener) {
-        load(path, isAsset, password, listener, onDrawBitmapCompleteListener, onErrorListener, null);
+    private void load(String path, String rpath, boolean isAsset, String password, OnLoadCompleteListener listener, OnLoadCompleteListener onDrawBitmapCompleteListener, OnErrorListener onErrorListener) {
+        load(path, rpath, isAsset, password, listener, onDrawBitmapCompleteListener, onErrorListener, null);
     }
 
     private void load(byte[] fileBytes, String password, OnLoadCompleteListener onLoadCompleteListener, OnLoadCompleteListener onDrawBitmapCompleteListener, OnErrorListener onErrorListener) {
@@ -286,7 +287,24 @@ public class PDFView extends RelativeLayout {
 
         recycled = false;
         // Start decoding document
-        decodingAsyncTask = new DecodingAsyncTask(fileBytes, password, this, pdfiumCore);
+        decodingAsyncTask = new DoubleDecodingAsyncTask(fileBytes, password, this, pdfiumCore);
+        decodingAsyncTask.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
+    }
+
+
+    private void load(byte[] leftBytes, byte[] rightBytes, String password, OnLoadCompleteListener onLoadCompleteListener, OnLoadCompleteListener onDrawBitmapCompleteListener, OnErrorListener onErrorListener) {
+
+        if (!recycled) {
+            throw new IllegalStateException("Don't call load on a PDF View without recycling it first.");
+        }
+
+        this.onLoadCompleteListener = onLoadCompleteListener;
+        this.onDrawBitmapCompleteListener = onDrawBitmapCompleteListener;
+        this.onErrorListener = onErrorListener;
+
+        recycled = false;
+        // Start decoding document
+        decodingAsyncTask = new DoubleDecodingAsyncTask(leftBytes, rightBytes, password, this, pdfiumCore);
         decodingAsyncTask.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
     }
 
@@ -304,7 +322,7 @@ public class PDFView extends RelativeLayout {
         redraw();
     }
 
-    private void load(String path, boolean isAsset, String password, OnLoadCompleteListener onLoadCompleteListener, OnLoadCompleteListener onDrawBitmapCompleteListener, OnErrorListener onErrorListener, int[] userPages) {
+    private void load(String path, String rpath, boolean isAsset, String password, OnLoadCompleteListener onLoadCompleteListener, OnLoadCompleteListener onDrawBitmapCompleteListener, OnErrorListener onErrorListener, int[] userPages) {
 
         if (!recycled) {
             throw new IllegalStateException("Don't call load on a PDF View without recycling it first.");
@@ -323,7 +341,11 @@ public class PDFView extends RelativeLayout {
 
         recycled = false;
         // Start decoding document
-        decodingAsyncTask = new DecodingAsyncTask(path, isAsset, password, this, pdfiumCore);
+        if (rpath != null) {
+            decodingAsyncTask = new DoubleDecodingAsyncTask(path, rpath, isAsset, password, this, pdfiumCore);
+        } else {
+            decodingAsyncTask = new DoubleDecodingAsyncTask(path, isAsset, password, this, pdfiumCore);
+        }
         decodingAsyncTask.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
     }
 
@@ -414,7 +436,7 @@ public class PDFView extends RelativeLayout {
     /**
      * @param progress   must be between 0 and 1
      * @param moveHandle whether to move scroll handle
-     * @see PDFView#getPositionOffset()
+     * @see DoublePDFView#getPositionOffset()
      */
     public void setPositionOffset(float progress, boolean moveHandle) {
         if (swipeVertical) {
@@ -490,11 +512,15 @@ public class PDFView extends RelativeLayout {
         if (pdfiumCore != null && pdfDocument != null) {
             pdfiumCore.closeDocument(pdfDocument);
         }
+        if (pdfiumCore != null && pdfRightDocument != null) {
+            pdfiumCore.closeDocument(pdfRightDocument);
+        }
 
         originalUserPages = null;
         filteredUserPages = null;
         filteredUserPageIndexes = null;
         pdfDocument = null;
+        pdfRightDocument = null;
         scrollHandle = null;
         isScrollHandleInit = false;
         currentXOffset = currentYOffset = 0;
@@ -584,7 +610,7 @@ public class PDFView extends RelativeLayout {
         canvas.translate(currentXOffset, currentYOffset);
         if (readyBitmap == null) {
             // Draws thumbnails
-            for (PagePart part : cacheManager.getThumbnails()) {
+            for (DoublePagePart part : cacheManager.getThumbnails()) {
                 drawPart(canvas, part);
             }
 
@@ -597,7 +623,7 @@ public class PDFView extends RelativeLayout {
                 onDrawBitmapCompleteListener.loadComplete(0);
                 onDrawBitmapCompleteListener = null;
             }
-            for (PagePart part : cacheManager.getPageParts()) {
+            for (DoublePagePart part : cacheManager.getPageParts()) {
                 drawPart(canvas, part);
             }
 
@@ -624,13 +650,16 @@ public class PDFView extends RelativeLayout {
     public float getBitmapRatio() {
         return bitmapRatio;
     }
-
+    public boolean twoPageMode = false;
     private float bitmapRatio = 0;
+
 
     /**
      * Draw a given PagePart on the canvas
      */
-    private void drawPart(Canvas canvas, PagePart part) {
+    Set<Pair<Boolean, Pair<Integer, Integer>>> pairs = new HashSet<>();
+
+    private void drawPart(Canvas canvas, DoublePagePart part) {
         // Can seem strange, but avoid lot of calls
         RectF pageRelativeBounds = part.getPageRelativeBounds();
         Bitmap renderedBitmap = part.getRenderedBitmap();
@@ -638,6 +667,8 @@ public class PDFView extends RelativeLayout {
         if (renderedBitmap.isRecycled()) {
             return;
         }
+
+        pairs.add(new Pair<>(part.isRightPage(), new Pair<>(part.row, part.col)));
 
         // Move to the target page
         float localTranslationX = 0;
@@ -651,9 +682,12 @@ public class PDFView extends RelativeLayout {
         Rect srcRect = new Rect(0, 0, renderedBitmap.getWidth(),
                 renderedBitmap.getHeight());
 
-        float offsetX = toCurrentScale(pageRelativeBounds.left * optimalPageWidth);
+        float offsetX = twoPageMode
+                ? toCurrentScale(pageRelativeBounds.left * optimalPageWidth/2 + (part.isRightPage()? 1 : 0)*(optimalPageWidth/2))
+                : toCurrentScale(pageRelativeBounds.left * optimalPageWidth);
         float offsetY = toCurrentScale(pageRelativeBounds.top * optimalPageHeight);
-        float width = toCurrentScale(pageRelativeBounds.width() * optimalPageWidth);
+        float width = twoPageMode? toCurrentScale(pageRelativeBounds.width() * optimalPageWidth/2) :
+                toCurrentScale(pageRelativeBounds.width() * optimalPageWidth);
         float height = toCurrentScale(pageRelativeBounds.height() * optimalPageHeight);
 
         // If we use float values for this rectangle, there will be
@@ -696,7 +730,7 @@ public class PDFView extends RelativeLayout {
         if (renderedBitmap.isRecycled()) {
             return;
         }
-        bitmapRatio = (1.0f / MathUtils.ceil(getOptimalPageHeight() / 256.0f))/(1.0f / MathUtils.ceil(getOptimalPageWidth() / 256.0f));;
+        bitmapRatio = (1.0f / MathUtils.ceil(getOptimalPageHeight() / 256.0f)) / (1.0f / MathUtils.ceil(getOptimalPageWidth() / 256.0f));
         // Move to the target page
         float localTranslationX = 0;
         float localTranslationY = 0;
@@ -755,14 +789,14 @@ public class PDFView extends RelativeLayout {
         renderingAsyncTask.removeAllTasks();
         cacheManager.makeANewSet();
 
-        pagesLoader.loadPages();
+        pagesLoader.loadPages(twoPageMode);
         redraw();
     }
 
     /**
      * Called when the PDF is loaded
      */
-    public void loadComplete(PdfDocument pdfDocument, boolean allPages) {
+    public void loadComplete(PdfDocument pdfDocument, PdfDocument pdfRightDocument, boolean allPages) {
         state = State.LOADED;
         this.documentPageCount = pdfiumCore.getPageCount(pdfDocument);
 
@@ -773,30 +807,28 @@ public class PDFView extends RelativeLayout {
 
         // We assume all the pages are the same size
         this.pdfDocument = pdfDocument;
+        this.pdfRightDocument = pdfRightDocument;
         if (allPages)
-            pdfiumCore.openPage(pdfDocument, 0, this.documentPageCount-1);
+            pdfiumCore.openPage(pdfDocument, 0, this.documentPageCount - 1);
         else
             pdfiumCore.openPage(pdfDocument, firstPageIdx);
         this.pageWidth = pdfiumCore.getPageWidth(pdfDocument, firstPageIdx);
         this.pageHeight = pdfiumCore.getPageHeight(pdfDocument, firstPageIdx);
+
+        if (pdfRightDocument != null) {
+            this.twoPageMode = true;
+            pdfiumCore.openPage(pdfRightDocument, 0, this.documentPageCount - 1);
+            this.pageRightWidth = pdfiumCore.getPageWidth(pdfRightDocument, firstPageIdx);
+        }
+
         calculateOptimalWidthAndHeight();
 
-        pagesLoader = new PagesLoader(this);
+        pagesLoader = new DoublePagesLoader(this);
+
+        bitmapRatio = (1.0f / MathUtils.ceil(getOptimalPageHeight() / 256.0f)) / (1.0f / MathUtils.ceil(getOptimalPageWidth() / 256.0f));
 
 
-
-        float ratioX = 1f / getOptimalPageWidth();
-        float ratioY = 1f / getOptimalPageHeight();
-        final float partHeight = (Constants.PART_SIZE * ratioY) / getZoom();
-        final float partWidth = (Constants.PART_SIZE * ratioX) / getZoom();
-        final int nbRows = MathUtils.ceil(1f / partHeight);
-        final int nbCols = MathUtils.ceil(1f / partWidth);
-        final float scaledHeight = getOptimalPageHeight();
-        final float scaledWidth = getOptimalPageWidth();
-        bitmapRatio = (1.0f / MathUtils.ceil(getOptimalPageHeight() / 256.0f))/(1.0f / MathUtils.ceil(getOptimalPageWidth() / 256.0f));
-
-
-        renderingAsyncTask = new RenderingAsyncTask(this, pdfiumCore, pdfDocument);
+        renderingAsyncTask = new DoubleRenderingAsyncTask(this, pdfiumCore, pdfDocument, pdfRightDocument);
         renderingAsyncTask.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
 
       /*  int w = Math.round(renderingAsyncTask.width);
@@ -837,7 +869,7 @@ public class PDFView extends RelativeLayout {
      *
      * @param part The created PagePart.
      */
-    public void onBitmapRendered(PagePart part) {
+    public void onBitmapRendered(DoublePagePart part) {
         if (part.isThumbnail()) {
             cacheManager.cacheThumbnail(part);
         } else {
@@ -901,6 +933,7 @@ public class PDFView extends RelativeLayout {
 
         float maxWidth = getWidth(), maxHeight = getHeight();
         float w = pageWidth, h = pageHeight;
+        w += pageRightWidth;
         float ratio = w / h;
         w = maxWidth;
         h = (float) Math.floor(maxWidth / ratio);
@@ -1147,7 +1180,7 @@ public class PDFView extends RelativeLayout {
         animationManager.startZoomAnimation(getWidth() / 2, getHeight() / 2, zoom, scale);
     }
 
-    private void setScrollHandle(ScrollHandle scrollHandle) {
+    private void setScrollHandle(DoubleScrollHandle scrollHandle) {
         this.scrollHandle = scrollHandle;
     }
 
@@ -1254,6 +1287,29 @@ public class PDFView extends RelativeLayout {
         }
     }
 
+    public Configurator fromAsset(String assetName, String rightAssetName) {
+        InputStream stream = null;
+        InputStream rstream = null;
+        try {
+            stream = getContext().getAssets().open(assetName);
+            rstream = getContext().getAssets().open(rightAssetName);
+            return new Configurator(assetName, rightAssetName, true);
+        } catch (IOException e) {
+            throw new FileNotFoundException(assetName + " does not exist.", e);
+        } finally {
+            try {
+                if (stream != null) {
+                    stream.close();
+                }
+                if (rstream != null) {
+                    rstream.close();
+                }
+            } catch (IOException e) {
+
+            }
+        }
+    }
+
     /**
      * Use a file as the pdf source
      */
@@ -1278,6 +1334,11 @@ public class PDFView extends RelativeLayout {
         return new Configurator(bytes).password(password);
     }
 
+    public Configurator fromBytes(byte[] leftBytes, byte[] rightBytes, String password) {
+        twoPageMode = true;
+        return new Configurator(leftBytes, rightBytes).password(password);
+    }
+
     /**
      * Use Uri as the pdf source, for use with content provider
      */
@@ -1291,11 +1352,17 @@ public class PDFView extends RelativeLayout {
 
         private final String path;
 
+        private String rpath = null;
+
+        private boolean twoPageMode;
+
         private final boolean isAsset;
 
         private int[] pageNumbers = null;
 
         private byte[] fileBytes = null;
+
+        private byte[] fileRightBytes = null;
 
         private Bitmap readyBitmap = null;
 
@@ -1323,10 +1390,17 @@ public class PDFView extends RelativeLayout {
 
         private String password = null;
 
-        private ScrollHandle scrollHandle = null;
+        private DoubleScrollHandle scrollHandle = null;
 
         private Configurator(String path, boolean isAsset) {
             this.path = path;
+            this.isAsset = isAsset;
+        }
+
+        private Configurator(String path, String rpath, boolean isAsset) {
+            this.path = path;
+            this.rpath = rpath;
+            this.twoPageMode = true;
             this.isAsset = isAsset;
         }
 
@@ -1334,6 +1408,14 @@ public class PDFView extends RelativeLayout {
             this.path = "";
             this.isAsset = false;
             this.fileBytes = fileBytes;
+        }
+
+        private Configurator(byte[] fileBytes, byte[] fileRightBytes) {
+            this.path = "";
+            this.isAsset = false;
+            this.fileBytes = fileBytes;
+            this.fileRightBytes = fileRightBytes;
+            this.twoPageMode = true;
         }
 
         private Configurator(Bitmap readyBitmap) {
@@ -1408,31 +1490,35 @@ public class PDFView extends RelativeLayout {
             return this;
         }
 
-        public Configurator scrollHandle(ScrollHandle scrollHandle) {
+        public Configurator scrollHandle(DoubleScrollHandle scrollHandle) {
             this.scrollHandle = scrollHandle;
             return this;
         }
 
         public void load() {
-            PDFView.this.recycle();
-            PDFView.this.setOnDrawListener(onDrawListener);
-            PDFView.this.setOnPageChangeListener(onPageChangeListener);
-            PDFView.this.setOnPageScrollListener(onPageScrollListener);
-            PDFView.this.enableSwipe(enableSwipe);
-            PDFView.this.enableDoubletap(enableDoubletap);
-            PDFView.this.setDefaultPage(defaultPage);
-            PDFView.this.setSwipeVertical(!swipeHorizontal);
-            PDFView.this.enableAnnotationRendering(annotationRendering);
-            PDFView.this.setScrollHandle(scrollHandle);
-            PDFView.this.dragPinchManager.setSwipeVertical(swipeVertical);
+            DoublePDFView.this.recycle();
+            DoublePDFView.this.setOnDrawListener(onDrawListener);
+            DoublePDFView.this.setOnPageChangeListener(onPageChangeListener);
+            DoublePDFView.this.setOnPageScrollListener(onPageScrollListener);
+            DoublePDFView.this.enableSwipe(enableSwipe);
+            DoublePDFView.this.enableDoubletap(enableDoubletap);
+            DoublePDFView.this.setDefaultPage(defaultPage);
+            DoublePDFView.this.setSwipeVertical(!swipeHorizontal);
+            DoublePDFView.this.enableAnnotationRendering(annotationRendering);
+            DoublePDFView.this.setScrollHandle(scrollHandle);
+            DoublePDFView.this.dragPinchManager.setSwipeVertical(swipeVertical);
             if (fileBytes != null) {
-                PDFView.this.load(fileBytes, password, onLoadCompleteListener, onDrawBitmapCompleteListener, onErrorListener);
+                if (twoPageMode) {
+                    DoublePDFView.this.load(fileBytes, fileRightBytes, password, onLoadCompleteListener, onDrawBitmapCompleteListener, onErrorListener);
+                } else {
+                    DoublePDFView.this.load(fileBytes, password, onLoadCompleteListener, onDrawBitmapCompleteListener, onErrorListener);
+                }
             } else if (readyBitmap != null) {
-                PDFView.this.load(readyBitmap, onLoadCompleteListener, onDrawBitmapCompleteListener);
+                DoublePDFView.this.load(readyBitmap, onLoadCompleteListener, onDrawBitmapCompleteListener);
             } else if (pageNumbers != null) {
-                PDFView.this.load(path, isAsset, password, onLoadCompleteListener, onDrawBitmapCompleteListener, onErrorListener, pageNumbers);
+                DoublePDFView.this.load(path, rpath, isAsset, password, onLoadCompleteListener, onDrawBitmapCompleteListener, onErrorListener, pageNumbers);
             } else {
-                PDFView.this.load(path, isAsset, password, onLoadCompleteListener, onDrawBitmapCompleteListener, onErrorListener);
+                DoublePDFView.this.load(path, rpath, isAsset, password, onLoadCompleteListener, onDrawBitmapCompleteListener, onErrorListener);
             }
         }
     }

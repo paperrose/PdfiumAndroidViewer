@@ -25,7 +25,7 @@ public interface OnPageScrollListener {
      * Called on every move while scrolling
      *
      * @param page current page index
-     * @param positionOffset see {@link com.github.paperrose.pdfviewer.PDFView#getPositionOffset()}
+     * @param positionOffset see {@link com.github.paperrose.pdfviewer.DoublePDFView#getPositionOffset()}
      */
     void onPageScrolled(int page, float positionOffset);
 }

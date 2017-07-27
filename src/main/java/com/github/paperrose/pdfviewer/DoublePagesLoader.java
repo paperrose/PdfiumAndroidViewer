@@ -9,9 +9,9 @@ import com.github.paperrose.pdfviewer.util.MathUtils;
 
 import static com.github.paperrose.pdfviewer.util.Constants.Cache.CACHE_SIZE;
 
-class PagesLoader {
+class DoublePagesLoader {
 
-    private PDFView pdfView;
+    private DoublePDFView pdfView;
 
 
     // variables set on every call to loadPages()
@@ -37,7 +37,7 @@ class PagesLoader {
         int col;
     }
 
-    public PagesLoader(PDFView pdfView) {
+    public DoublePagesLoader(DoublePDFView pdfView) {
         this.pdfView = pdfView;
     }
 
@@ -84,12 +84,12 @@ class PagesLoader {
         return holder;
     }
 
-    private void loadThumbnail(int userPage, int documentPage) {
+    private void loadThumbnail(int userPage, int documentPage, boolean rightPage) {
         if (!pdfView.cacheManager.containsThumbnail(userPage, documentPage,
-                thumbnailWidth, thumbnailHeight, thumbnailRect)) {
+                thumbnailWidth, thumbnailHeight, thumbnailRect, rightPage)) {
             pdfView.renderingAsyncTask.addRenderingTask(userPage, documentPage,
                     thumbnailWidth, thumbnailHeight, thumbnailRect,
-                    true, 0, pdfView.isBestQuality(), pdfView.isAnnotationRendering());
+                    true, 0, pdfView.isBestQuality(), pdfView.isAnnotationRendering(), rightPage, -1, -1);
         }
     }
 
@@ -97,7 +97,7 @@ class PagesLoader {
      * @param number if < 0 then row (column) is above view, else row (column) is visible or below view
      * @return
      */
-    private int loadRelative(int number, int nbOfPartsLoadable, boolean outsideView) {
+    private int loadRelative(int number, int nbOfPartsLoadable, boolean outsideView, boolean twoPagesMode) {
         int loaded = 0;
         float newOffset;
         if (pdfView.isSwipeVertical()) {
@@ -113,7 +113,9 @@ class PagesLoader {
         if (documentPage < 0) {
             return 0;
         }
-        loadThumbnail(holder.page, documentPage);
+        loadThumbnail(holder.page, documentPage, false);
+        if (twoPagesMode)
+            loadThumbnail(holder.page, documentPage, true);
 
         if (pdfView.isSwipeVertical()) {
             int firstCol = MathUtils.floor(xOffset / colWidth);
@@ -121,7 +123,7 @@ class PagesLoader {
             int lastCol = MathUtils.ceil((xOffset + pdfView.getWidth()) / colWidth);
             lastCol = MathUtils.max(lastCol + 1, colsRows.first);
             for (int col = firstCol; col <= lastCol; col++) {
-                if (loadCell(holder.page, documentPage, holder.row, col, pageRelativePartWidth, pageRelativePartHeight)) {
+                if (loadCell(holder.page, documentPage, holder.row, col, pageRelativePartWidth, pageRelativePartHeight, twoPagesMode)) {
                     loaded++;
                 }
                 if (loaded >= nbOfPartsLoadable) {
@@ -134,7 +136,7 @@ class PagesLoader {
             int lastRow = MathUtils.ceil((yOffset + pdfView.getHeight()) / rowHeight);
             lastRow = MathUtils.max(lastRow + 1, colsRows.second);
             for (int row = firstRow; row <= lastRow; row++) {
-                if (loadCell(holder.page, documentPage, row, holder.col, pageRelativePartWidth, pageRelativePartHeight)) {
+                if (loadCell(holder.page, documentPage, row, holder.col, pageRelativePartWidth, pageRelativePartHeight, twoPagesMode)) {
                     loaded++;
                 }
                 if (loaded >= nbOfPartsLoadable) {
@@ -146,7 +148,7 @@ class PagesLoader {
         return loaded;
     }
 
-    public int loadVisible() {
+    public int loadVisible(boolean twoPagesMode) {
         int parts = 0;
         Holder firstHolder, lastHolder;
         if (pdfView.isSwipeVertical()) {
@@ -164,7 +166,7 @@ class PagesLoader {
             }
 
             for (int i = 0; i < visibleRows && parts < CACHE_SIZE; i++) {
-                parts += loadRelative(i, CACHE_SIZE - parts, false);
+                parts += loadRelative(i, CACHE_SIZE - parts, false, twoPagesMode);
             }
         } else {
             firstHolder = getPageAndCoordsByOffset(pdfView.getCurrentXOffset());
@@ -181,25 +183,29 @@ class PagesLoader {
             }
 
             for (int i = 0; i < visibleCols && parts < CACHE_SIZE; i++) {
-                parts += loadRelative(i, CACHE_SIZE - parts, false);
+                parts += loadRelative(i, CACHE_SIZE - parts, false, twoPagesMode);
             }
         }
         int prevDocPage = documentPage(firstHolder.page - 1);
         if (prevDocPage >= 0) {
-            loadThumbnail(firstHolder.page - 1, prevDocPage);
+            if (twoPagesMode)
+                loadThumbnail(firstHolder.page - 1, prevDocPage, true);
+            loadThumbnail(firstHolder.page - 1, prevDocPage, false);
         }
         int nextDocPage = documentPage(firstHolder.page + 1);
         if (nextDocPage >= 0) {
-            loadThumbnail(firstHolder.page + 1, nextDocPage);
+            if (twoPagesMode)
+                loadThumbnail(firstHolder.page + 1, nextDocPage, true);
+            loadThumbnail(firstHolder.page + 1, nextDocPage, false);
         }
         return parts;
     }
 
-    private boolean loadCell(int userPage, int documentPage, int row, int col, float pageRelativePartWidth, float pageRelativePartHeight) {
+    private boolean loadCell(int userPage, int documentPage, int row, int col, float pageRelativePartWidth, float pageRelativePartHeight, boolean twoPagesMode) {
 
-        float relX = pageRelativePartWidth * col;
+        float relX = twoPagesMode ? (pageRelativePartWidth * 2*(col % (colsRows.first/2))) : (pageRelativePartWidth * col);
         float relY = pageRelativePartHeight * row;
-        float relWidth = pageRelativePartWidth;
+        float relWidth = pageRelativePartWidth * (twoPagesMode ? 2 : 1);
         float relHeight = pageRelativePartHeight;
 
         // Adjust width and height to
@@ -217,10 +223,10 @@ class PagesLoader {
         RectF pageRelativeBounds = new RectF(relX, relY, relX + relWidth, relY + relHeight);
 
         if (renderWidth > 0 && renderHeight > 0) {
-            if (!pdfView.cacheManager.upPartIfContained(userPage, documentPage, renderWidth, renderHeight, pageRelativeBounds, cacheOrder)) {
+            if (!pdfView.cacheManager.upPartIfContained(userPage, documentPage, renderWidth, renderHeight, pageRelativeBounds, cacheOrder, col >= colsRows.first/2)) {
                 pdfView.renderingAsyncTask.addRenderingTask(userPage, documentPage,
                         renderWidth, renderHeight, pageRelativeBounds, false, cacheOrder,
-                        pdfView.isBestQuality(), pdfView.isAnnotationRendering());
+                        pdfView.isBestQuality(), pdfView.isAnnotationRendering(), col >= colsRows.first/2, row, col);
             }
 
             cacheOrder++;
@@ -229,7 +235,7 @@ class PagesLoader {
         return false;
     }
 
-    public void loadPages() {
+    public void loadPages(boolean twoPagesMode) {
         scaledHeight = pdfView.toCurrentScale(pdfView.getOptimalPageHeight());
         scaledWidth = pdfView.toCurrentScale(pdfView.getOptimalPageWidth());
         thumbnailWidth = (int) (pdfView.getOptimalPageWidth() * Constants.THUMBNAIL_RATIO);
@@ -244,14 +250,14 @@ class PagesLoader {
         partRenderWidth = Constants.PART_SIZE / pageRelativePartWidth;
         partRenderHeight = Constants.PART_SIZE / pageRelativePartHeight;
         cacheOrder = 1;
-        int loaded = loadVisible();
-        if (pdfView.getScrollDir().equals(PDFView.ScrollDir.END)) { // if scrolling to end, preload next view
+        int loaded = loadVisible(twoPagesMode);
+        if (pdfView.getScrollDir().equals(DoublePDFView.ScrollDir.END)) { // if scrolling to end, preload next view
             for (int i = 0; i < Constants.PRELOAD_COUNT && loaded < CACHE_SIZE; i++) {
-                loaded += loadRelative(i, loaded, true);
+                loaded += loadRelative(i, loaded, true, twoPagesMode);
             }
         } else { // if scrolling to start, preload previous view
             for (int i = 0; i > -Constants.PRELOAD_COUNT && loaded < CACHE_SIZE; i--) {
-                loaded += loadRelative(i, loaded, false);
+                loaded += loadRelative(i, loaded, false, twoPagesMode);
             }
         }
     }

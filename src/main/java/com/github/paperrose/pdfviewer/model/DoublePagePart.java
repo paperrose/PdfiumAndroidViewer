@@ -18,11 +18,15 @@ package com.github.paperrose.pdfviewer.model;
 import android.graphics.Bitmap;
 import android.graphics.RectF;
 
-public class PagePart {
+public class DoublePagePart {
 
     private int userPage;
 
     private int page;
+
+    public int row;
+
+    public int col;
 
     private Bitmap renderedBitmap;
 
@@ -32,11 +36,14 @@ public class PagePart {
 
     private boolean thumbnail;
 
+    private boolean rightPage;
+
     private int cacheOrder;
 
-    public PagePart(int userPage, int page, Bitmap renderedBitmap, float width, float height, RectF pageRelativeBounds, boolean thumbnail, int cacheOrder) {
+    public DoublePagePart(int userPage, int page, Bitmap renderedBitmap, float width, float height, RectF pageRelativeBounds, boolean thumbnail, int cacheOrder, boolean rightPage) {
         super();
         this.userPage = userPage;
+        this.rightPage = rightPage;
         this.page = page;
         this.renderedBitmap = renderedBitmap;
         this.pageRelativeBounds = pageRelativeBounds;
@@ -76,21 +83,27 @@ public class PagePart {
         return thumbnail;
     }
 
+    public boolean isRightPage() {
+        return rightPage;
+    }
+
     public void setCacheOrder(int cacheOrder) {
         this.cacheOrder = cacheOrder;
     }
 
     @Override
     public boolean equals(Object obj) {
-        if (!(obj instanceof PagePart)) {
+        if (!(obj instanceof DoublePagePart)) {
             return false;
         }
 
-        PagePart part = (PagePart) obj;
+        DoublePagePart part = (DoublePagePart) obj;
         return part.getPage() == page
                 && part.getUserPage() == userPage
                 && part.getWidth() == width
                 && part.getHeight() == height
+                && part.isRightPage() == rightPage
+                && part.isThumbnail() == thumbnail
                 && part.getPageRelativeBounds().left == pageRelativeBounds.left
                 && part.getPageRelativeBounds().right == pageRelativeBounds.right
                 && part.getPageRelativeBounds().top == pageRelativeBounds.top
