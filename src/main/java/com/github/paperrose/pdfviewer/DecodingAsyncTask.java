@@ -70,9 +70,13 @@ class DecodingAsyncTask extends AsyncTask<Void, Void, Throwable> {
     @Override
     protected Throwable doInBackground(Void... params) {
         try {
+            if (cancelled)
+                return null;
             if (isByteArray) {
                 if (password != null) {
                     fileBytes = CryptLab.decodeAES(fileBytes, password);
+                    if (cancelled)
+                        return null;
                 }
                 pdfDocument = pdfiumCore.newDocument(fileBytes);
                 //TODO - encodeAES in example
