@@ -100,11 +100,19 @@ class DoubleDecodingAsyncTask extends AsyncTask<Void, Void, Throwable> {
     @Override
     protected Throwable doInBackground(Void... params) {
         try {
+            if (cancelled)
+                return null;
             if (isByteArray) {
                 if (password != null) {
                     fileBytes = CryptLab.decodeAES(fileBytes, password);
-                    if (twoPageMode)
+                    if (cancelled)
+                        return null;
+                    if (twoPageMode) {
                         rightBytes = CryptLab.decodeAES(rightBytes, password);
+                        if (cancelled)
+                            return null;
+                    }
+                    
                 }
                 pdfDocument = pdfiumCore.newDocument(fileBytes);
                 if (twoPageMode) {
