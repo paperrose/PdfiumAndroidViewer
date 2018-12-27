@@ -281,7 +281,7 @@ public class PDFView extends RelativeLayout {
         load(path, isAsset, password, listener, onDrawBitmapCompleteListener, onErrorListener, null);
     }
 
-    public static final ThreadPoolExecutor DOWNLOAD_THREAD_POOL_EXECUTOR;
+    public static ThreadPoolExecutor DOWNLOAD_THREAD_POOL_EXECUTOR;
 
     private static final int CPU_COUNT = Runtime.getRuntime().availableProcessors();
     private static final int CORE_POOL_SIZE = Math.max(2, Math.min(CPU_COUNT - 1, 4));
@@ -856,6 +856,11 @@ public class PDFView extends RelativeLayout {
 
     public static void clearThreads() {
         DOWNLOAD_THREAD_POOL_EXECUTOR.shutdownNow();
+        ThreadPoolExecutor threadPoolExecutor = new ThreadPoolExecutor(
+                CORE_POOL_SIZE, MAXIMUM_POOL_SIZE, KEEP_ALIVE_SECONDS, TimeUnit.SECONDS,
+                sPoolWorkQueue, sThreadFactory);
+        threadPoolExecutor.allowCoreThreadTimeOut(true);
+        DOWNLOAD_THREAD_POOL_EXECUTOR = threadPoolExecutor;
     }
 
     public void loadError(Throwable t) {
