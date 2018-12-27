@@ -282,14 +282,13 @@ public class PDFView extends RelativeLayout {
     }
 
     public static final ThreadPoolExecutor DOWNLOAD_THREAD_POOL_EXECUTOR;
-    public static final ThreadPoolExecutor RENDER_THREAD_POOL_EXECUTOR;
 
     private static final int CPU_COUNT = Runtime.getRuntime().availableProcessors();
     private static final int CORE_POOL_SIZE = Math.max(2, Math.min(CPU_COUNT - 1, 4));
     private static final int MAXIMUM_POOL_SIZE = CPU_COUNT * 2 + 1;
     private static final int KEEP_ALIVE_SECONDS = 30;
     private static final BlockingQueue<Runnable> sPoolWorkQueue =
-            new LinkedBlockingQueue<Runnable>(64);
+            new LinkedBlockingQueue<Runnable>(128);
 
     private static final BlockingQueue<Runnable> sRenderPoolWorkQueue =
             new LinkedBlockingQueue<Runnable>(64);
@@ -302,28 +301,15 @@ public class PDFView extends RelativeLayout {
         }
     };
 
-    private static final ThreadFactory sThreadFactory2 = new ThreadFactory() {
-        private final AtomicInteger mCount = new AtomicInteger(1);
-
-        public Thread newThread(Runnable r) {
-            return new Thread(r, "AsyncTask Render #" + mCount.getAndIncrement());
-        }
-    };
-
 
     static {
         ThreadPoolExecutor threadPoolExecutor = new ThreadPoolExecutor(
-                CORE_POOL_SIZE / 2, MAXIMUM_POOL_SIZE / 2, KEEP_ALIVE_SECONDS, TimeUnit.SECONDS,
+                CORE_POOL_SIZE, MAXIMUM_POOL_SIZE, KEEP_ALIVE_SECONDS, TimeUnit.SECONDS,
                 sPoolWorkQueue, sThreadFactory);
         threadPoolExecutor.allowCoreThreadTimeOut(true);
 
         DOWNLOAD_THREAD_POOL_EXECUTOR = threadPoolExecutor;
 
-        ThreadPoolExecutor threadPoolExecutor2 = new ThreadPoolExecutor(
-                CORE_POOL_SIZE / 2, MAXIMUM_POOL_SIZE / 2, KEEP_ALIVE_SECONDS, TimeUnit.SECONDS,
-                sRenderPoolWorkQueue, sThreadFactory2);
-        threadPoolExecutor2.allowCoreThreadTimeOut(true);
-        RENDER_THREAD_POOL_EXECUTOR = threadPoolExecutor2;
     }
 
     private void load(byte[] fileBytes, String password, OnLoadCompleteListener onLoadCompleteListener, OnLoadCompleteListener onDrawBitmapCompleteListener, OnErrorListener onErrorListener) {
@@ -849,7 +835,7 @@ public class PDFView extends RelativeLayout {
 
 
         renderingAsyncTask = new RenderingAsyncTask(this, pdfiumCore, pdfDocument);
-        renderingAsyncTask.executeOnExecutor(RENDER_THREAD_POOL_EXECUTOR);
+        renderingAsyncTask.executeOnExecutor(DOWNLOAD_THREAD_POOL_EXECUTOR);
 
       /*  int w = Math.round(renderingAsyncTask.width);
         int h = Math.round(renderingAsyncTask.height);
@@ -870,7 +856,6 @@ public class PDFView extends RelativeLayout {
 
     public static void clearThreads() {
         DOWNLOAD_THREAD_POOL_EXECUTOR.shutdownNow();
-        RENDER_THREAD_POOL_EXECUTOR.shutdownNow();
     }
 
     public void loadError(Throwable t) {
