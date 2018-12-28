@@ -325,7 +325,7 @@ public class PDFView extends RelativeLayout {
         recycled = false;
         // Start decoding document
         decodingAsyncTask = new DecodingAsyncTask(fileBytes, password, this, pdfiumCore);
-        if (DOWNLOAD_THREAD_POOL_EXECUTOR.getQueue().size() > 15) {
+        if (DOWNLOAD_THREAD_POOL_EXECUTOR.getQueue().size() > 8) {
             clearThreads();
         }
         decodingAsyncTask.executeOnExecutor(DOWNLOAD_THREAD_POOL_EXECUTOR);
@@ -365,7 +365,7 @@ public class PDFView extends RelativeLayout {
         recycled = false;
         // Start decoding document
         decodingAsyncTask = new DecodingAsyncTask(path, isAsset, password, this, pdfiumCore);
-        if (DOWNLOAD_THREAD_POOL_EXECUTOR.getQueue().size() > 15) {
+        if (DOWNLOAD_THREAD_POOL_EXECUTOR.getQueue().size() > 8) {
             clearThreads();
         }
         decodingAsyncTask.executeOnExecutor(DOWNLOAD_THREAD_POOL_EXECUTOR);
