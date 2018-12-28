@@ -325,6 +325,9 @@ public class PDFView extends RelativeLayout {
         recycled = false;
         // Start decoding document
         decodingAsyncTask = new DecodingAsyncTask(fileBytes, password, this, pdfiumCore);
+        if (DOWNLOAD_THREAD_POOL_EXECUTOR.getQueue().size() > 15) {
+            clearThreads();
+        }
         decodingAsyncTask.executeOnExecutor(DOWNLOAD_THREAD_POOL_EXECUTOR);
     }
 
@@ -362,6 +365,9 @@ public class PDFView extends RelativeLayout {
         recycled = false;
         // Start decoding document
         decodingAsyncTask = new DecodingAsyncTask(path, isAsset, password, this, pdfiumCore);
+        if (DOWNLOAD_THREAD_POOL_EXECUTOR.getQueue().size() > 15) {
+            clearThreads();
+        }
         decodingAsyncTask.executeOnExecutor(DOWNLOAD_THREAD_POOL_EXECUTOR);
     }
 
@@ -833,8 +839,8 @@ public class PDFView extends RelativeLayout {
         final float scaledWidth = getOptimalPageWidth();
         bitmapRatio = (1.0f / MathUtils.ceil(getOptimalPageHeight() / 256.0f))/(1.0f / MathUtils.ceil(getOptimalPageWidth() / 256.0f));
 
-
         renderingAsyncTask = new RenderingAsyncTask(this, pdfiumCore, pdfDocument);
+
         renderingAsyncTask.executeOnExecutor(DOWNLOAD_THREAD_POOL_EXECUTOR);
 
       /*  int w = Math.round(renderingAsyncTask.width);
