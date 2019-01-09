@@ -90,6 +90,7 @@ class DecodingAsyncTask extends AsyncTask<Void, Void, Throwable> {
 
             return null;
         } catch (Throwable t) {
+            t.printStackTrace();
             return t;
         }
     }
