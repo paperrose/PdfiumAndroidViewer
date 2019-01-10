@@ -125,7 +125,7 @@ class DecodingAsyncTask extends AsyncTask<Void, Void, Throwable> {
             return;
         }
         if (!cancelled) {
-            pdfView.loadComplete(pdfDocument, isByteArray);
+            pdfView.loadCompleteWithCheck(pdfDocument, isByteArray);
         }
     }
 

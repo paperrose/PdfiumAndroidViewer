@@ -27,6 +27,7 @@ import android.graphics.RectF;
 import android.graphics.drawable.Drawable;
 import android.net.Uri;
 import android.os.AsyncTask;
+import android.os.Handler;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.util.Pair;
@@ -324,11 +325,35 @@ public class PDFView extends RelativeLayout {
 
         recycled = false;
         // Start decoding document
-        decodingAsyncTask = new DecodingAsyncTask(fileBytes, password, this, pdfiumCore);
-        if (DOWNLOAD_THREAD_POOL_EXECUTOR.getQueue().size() > 8) {
+        if (DOWNLOAD_THREAD_POOL_EXECUTOR.getQueue().size() > 0) {
             clearThreads();
+            final byte[] fBytes = fileBytes;
+            final String fPassword = password;
+            new Handler().postDelayed(new Runnable() {
+                @Override
+                public void run() {
+                    decodingAsyncTask = new DecodingAsyncTask(fBytes, fPassword, PDFView.this, pdfiumCore);
+                    decodingAsyncTask.executeOnExecutor(DOWNLOAD_THREAD_POOL_EXECUTOR);
+                }
+            }, 50);
+        } else {
+            try {
+                decodingAsyncTask = new DecodingAsyncTask(fileBytes, password, this, pdfiumCore);
+                decodingAsyncTask.executeOnExecutor(DOWNLOAD_THREAD_POOL_EXECUTOR);
+            } catch (IllegalStateException e) {
+                clearThreads();
+                final byte[] fBytes = fileBytes;
+                final String fPassword = password;
+                new Handler().postDelayed(new Runnable() {
+                    @Override
+                    public void run() {
+                        decodingAsyncTask = new DecodingAsyncTask(fBytes, fPassword, PDFView.this, pdfiumCore);
+                        decodingAsyncTask.executeOnExecutor(DOWNLOAD_THREAD_POOL_EXECUTOR);
+                    }
+                }, 50);
+            }
         }
-        decodingAsyncTask.executeOnExecutor(DOWNLOAD_THREAD_POOL_EXECUTOR);
+
     }
 
     private void load(Bitmap readyBitmap, OnLoadCompleteListener listener, OnLoadCompleteListener onDrawBitmapCompleteListener) {
@@ -740,7 +765,8 @@ public class PDFView extends RelativeLayout {
         if (renderedBitmap.isRecycled()) {
             return;
         }
-        bitmapRatio = (1.0f / MathUtils.ceil(getOptimalPageHeight() / 256.0f))/(1.0f / MathUtils.ceil(getOptimalPageWidth() / 256.0f));;
+        bitmapRatio = (1.0f / MathUtils.ceil(getOptimalPageHeight() / 256.0f)) / (1.0f / MathUtils.ceil(getOptimalPageWidth() / 256.0f));
+        ;
         // Move to the target page
         float localTranslationX = 0;
         float localTranslationY = 0;
@@ -806,6 +832,22 @@ public class PDFView extends RelativeLayout {
     /**
      * Called when the PDF is loaded
      */
+    public void loadCompleteWithCheck(PdfDocument pdfDocument, boolean allPages) {
+        if (DOWNLOAD_THREAD_POOL_EXECUTOR.getQueue().size() > 0) {
+            clearThreads();
+            final PdfDocument fpdfDocument = pdfDocument;
+            final boolean fallPages = allPages;
+            new Handler().postDelayed(new Runnable() {
+                @Override
+                public void run() {
+                    loadComplete(fpdfDocument, fallPages);
+                }
+            }, 50);
+        } else {
+            loadComplete(pdfDocument, allPages);
+        }
+    }
+
     public void loadComplete(PdfDocument pdfDocument, boolean allPages) {
         state = State.LOADED;
         this.documentPageCount = pdfiumCore.getPageCount(pdfDocument);
@@ -818,7 +860,7 @@ public class PDFView extends RelativeLayout {
         // We assume all the pages are the same size
         this.pdfDocument = pdfDocument;
         if (allPages)
-            pdfiumCore.openPage(pdfDocument, 0, this.documentPageCount-1);
+            pdfiumCore.openPage(pdfDocument, 0, this.documentPageCount - 1);
         else
             pdfiumCore.openPage(pdfDocument, firstPageIdx);
         this.pageWidth = pdfiumCore.getPageWidth(pdfDocument, firstPageIdx);
@@ -826,7 +868,6 @@ public class PDFView extends RelativeLayout {
         calculateOptimalWidthAndHeight();
 
         pagesLoader = new PagesLoader(this);
-
 
 
         float ratioX = 1f / getOptimalPageWidth();
@@ -837,7 +878,7 @@ public class PDFView extends RelativeLayout {
         final int nbCols = MathUtils.ceil(1f / partWidth);
         final float scaledHeight = getOptimalPageHeight();
         final float scaledWidth = getOptimalPageWidth();
-        bitmapRatio = (1.0f / MathUtils.ceil(getOptimalPageHeight() / 256.0f))/(1.0f / MathUtils.ceil(getOptimalPageWidth() / 256.0f));
+        bitmapRatio = (1.0f / MathUtils.ceil(getOptimalPageHeight() / 256.0f)) / (1.0f / MathUtils.ceil(getOptimalPageWidth() / 256.0f));
 
         renderingAsyncTask = new RenderingAsyncTask(this, pdfiumCore, pdfDocument);
 
