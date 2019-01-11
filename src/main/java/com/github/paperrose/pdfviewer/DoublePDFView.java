@@ -27,6 +27,7 @@ import android.graphics.RectF;
 import android.graphics.drawable.Drawable;
 import android.net.Uri;
 import android.os.AsyncTask;
+import android.os.Handler;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.util.Pair;
@@ -53,6 +54,13 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+
 
 public class DoublePDFView extends RelativeLayout {
 
@@ -287,8 +295,71 @@ public class DoublePDFView extends RelativeLayout {
 
         recycled = false;
         // Start decoding document
-        decodingAsyncTask = new DoubleDecodingAsyncTask(fileBytes, password, this, pdfiumCore);
-        decodingAsyncTask.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
+
+        if (DOWNLOAD_THREAD_POOL_EXECUTOR.getQueue().size() > 0) {
+            clearThreads();
+            final byte[] fBytes = fileBytes;
+            final String fPassword = password;
+            new Handler().postDelayed(new Runnable() {
+                @Override
+                public void run() {
+                    decodingAsyncTask = new DoubleDecodingAsyncTask(fBytes, fPassword, DoublePDFView.this, pdfiumCore);
+                    decodingAsyncTask.executeOnExecutor(DOWNLOAD_THREAD_POOL_EXECUTOR);
+                }
+            }, 50);
+        } else {
+            try {
+                decodingAsyncTask = new DoubleDecodingAsyncTask(fileBytes, password, this, pdfiumCore);
+                decodingAsyncTask.executeOnExecutor(DOWNLOAD_THREAD_POOL_EXECUTOR);
+            } catch (IllegalStateException e) {
+                clearThreads();
+                final byte[] fBytes = fileBytes;
+                final String fPassword = password;
+                new Handler().postDelayed(new Runnable() {
+                    @Override
+                    public void run() {
+                        decodingAsyncTask = new DoubleDecodingAsyncTask(fBytes, fPassword, DoublePDFView.this, pdfiumCore);
+                        decodingAsyncTask.executeOnExecutor(DOWNLOAD_THREAD_POOL_EXECUTOR);
+                    }
+                }, 50);
+            }
+        }
+    }
+
+    private static final int CPU_COUNT = Runtime.getRuntime().availableProcessors();
+    private static final int CORE_POOL_SIZE = Math.max(2, Math.min(CPU_COUNT - 1, 4));
+    private static final int MAXIMUM_POOL_SIZE = CPU_COUNT * 2 + 1;
+    private static final int KEEP_ALIVE_SECONDS = 30;
+    private static final BlockingQueue<Runnable> sPoolWorkQueue =
+            new LinkedBlockingQueue<Runnable>(128);
+
+    private static final ThreadFactory sThreadFactory = new ThreadFactory() {
+        private final AtomicInteger mCount = new AtomicInteger(1);
+
+        public Thread newThread(Runnable r) {
+            return new Thread(r, "AsyncTask Download #" + mCount.getAndIncrement());
+        }
+    };
+
+    public static ThreadPoolExecutor DOWNLOAD_THREAD_POOL_EXECUTOR;
+
+    static {
+        ThreadPoolExecutor threadPoolExecutor = new ThreadPoolExecutor(
+                CORE_POOL_SIZE, MAXIMUM_POOL_SIZE, KEEP_ALIVE_SECONDS, TimeUnit.SECONDS,
+                sPoolWorkQueue, sThreadFactory);
+        threadPoolExecutor.allowCoreThreadTimeOut(true);
+
+        DOWNLOAD_THREAD_POOL_EXECUTOR = threadPoolExecutor;
+
+    }
+
+    public static void clearThreads() {
+        DOWNLOAD_THREAD_POOL_EXECUTOR.shutdownNow();
+        ThreadPoolExecutor threadPoolExecutor = new ThreadPoolExecutor(
+                CORE_POOL_SIZE, MAXIMUM_POOL_SIZE, KEEP_ALIVE_SECONDS, TimeUnit.SECONDS,
+                sPoolWorkQueue, sThreadFactory);
+        threadPoolExecutor.allowCoreThreadTimeOut(true);
+        DOWNLOAD_THREAD_POOL_EXECUTOR = threadPoolExecutor;
     }
 
 
@@ -305,7 +376,7 @@ public class DoublePDFView extends RelativeLayout {
         recycled = false;
         // Start decoding document
         decodingAsyncTask = new DoubleDecodingAsyncTask(leftBytes, rightBytes, password, this, pdfiumCore);
-        decodingAsyncTask.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
+        decodingAsyncTask.executeOnExecutor(DOWNLOAD_THREAD_POOL_EXECUTOR);
     }
 
     private void load(Bitmap readyBitmap, OnLoadCompleteListener listener, OnLoadCompleteListener onDrawBitmapCompleteListener) {
@@ -346,7 +417,7 @@ public class DoublePDFView extends RelativeLayout {
         } else {
             decodingAsyncTask = new DoubleDecodingAsyncTask(path, isAsset, password, this, pdfiumCore);
         }
-        decodingAsyncTask.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
+        decodingAsyncTask.executeOnExecutor(DOWNLOAD_THREAD_POOL_EXECUTOR);
     }
 
     public void addAdditionalSingleTapListener(OnClickListener listener) {
@@ -796,6 +867,23 @@ public class DoublePDFView extends RelativeLayout {
     /**
      * Called when the PDF is loaded
      */
+    public void loadCompleteWithCheck(PdfDocument pdfDocument, PdfDocument pdfRightDocument, boolean allPages) {
+        if (DOWNLOAD_THREAD_POOL_EXECUTOR.getQueue().size() > 0) {
+            clearThreads();
+            final PdfDocument fpdfDocument = pdfDocument;
+            final PdfDocument fpdfRightDocument = pdfRightDocument;
+            final boolean fallPages = allPages;
+            new Handler().postDelayed(new Runnable() {
+                @Override
+                public void run() {
+                    loadComplete(fpdfDocument, fpdfRightDocument, fallPages);
+                }
+            }, 50);
+        } else {
+            loadComplete(pdfDocument, pdfRightDocument, allPages);
+        }
+    }
+
     public void loadComplete(PdfDocument pdfDocument, PdfDocument pdfRightDocument, boolean allPages) {
         state = State.LOADED;
         this.documentPageCount = pdfiumCore.getPageCount(pdfDocument);
@@ -829,7 +917,7 @@ public class DoublePDFView extends RelativeLayout {
 
 
         renderingAsyncTask = new DoubleRenderingAsyncTask(this, pdfiumCore, pdfDocument, pdfRightDocument);
-        renderingAsyncTask.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
+        renderingAsyncTask.executeOnExecutor(DOWNLOAD_THREAD_POOL_EXECUTOR);
 
       /*  int w = Math.round(renderingAsyncTask.width);
         int h = Math.round(renderingAsyncTask.height);

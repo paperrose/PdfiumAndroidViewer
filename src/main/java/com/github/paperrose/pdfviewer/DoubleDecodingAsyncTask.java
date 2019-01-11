@@ -166,7 +166,7 @@ class DoubleDecodingAsyncTask extends AsyncTask<Void, Void, Throwable> {
             return;
         }
         if (!cancelled) {
-            pdfView.loadComplete(pdfDocument, pdfRightDocument, true);
+            pdfView.loadCompleteWithCheck(pdfDocument, pdfRightDocument, true);
         }
     }
 
