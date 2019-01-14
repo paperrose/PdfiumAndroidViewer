@@ -329,13 +329,8 @@ public class PDFView extends RelativeLayout {
             clearThreads();
             final byte[] fBytes = fileBytes;
             final String fPassword = password;
-            new Handler().postDelayed(new Runnable() {
-                @Override
-                public void run() {
-                    decodingAsyncTask = new DecodingAsyncTask(fBytes, fPassword, PDFView.this, pdfiumCore);
-                    decodingAsyncTask.executeOnExecutor(DOWNLOAD_THREAD_POOL_EXECUTOR);
-                }
-            }, 50);
+            decodingAsyncTask = new DecodingAsyncTask(fBytes, fPassword, PDFView.this, pdfiumCore);
+            decodingAsyncTask.executeOnExecutor(DOWNLOAD_THREAD_POOL_EXECUTOR);
         } else {
             try {
                 decodingAsyncTask = new DecodingAsyncTask(fileBytes, password, this, pdfiumCore);
@@ -344,13 +339,8 @@ public class PDFView extends RelativeLayout {
                 clearThreads();
                 final byte[] fBytes = fileBytes;
                 final String fPassword = password;
-                new Handler().postDelayed(new Runnable() {
-                    @Override
-                    public void run() {
-                        decodingAsyncTask = new DecodingAsyncTask(fBytes, fPassword, PDFView.this, pdfiumCore);
-                        decodingAsyncTask.executeOnExecutor(DOWNLOAD_THREAD_POOL_EXECUTOR);
-                    }
-                }, 50);
+                decodingAsyncTask = new DecodingAsyncTask(fBytes, fPassword, PDFView.this, pdfiumCore);
+                decodingAsyncTask.executeOnExecutor(DOWNLOAD_THREAD_POOL_EXECUTOR);
             }
         }
 
@@ -834,12 +824,7 @@ public class PDFView extends RelativeLayout {
             clearThreads();
             final PdfDocument fpdfDocument = pdfDocument;
             final boolean fallPages = allPages;
-            new Handler().postDelayed(new Runnable() {
-                @Override
-                public void run() {
-                    loadComplete(fpdfDocument, fallPages);
-                }
-            }, 50);
+            loadComplete(fpdfDocument, fallPages);
         } else {
             loadComplete(pdfDocument, allPages);
         }
