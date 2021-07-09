@@ -326,7 +326,15 @@ public class PDFView extends RelativeLayout {
             final byte[] fBytes = fileBytes;
             final String fPassword = password;
             decodingAsyncTask = new DecodingAsyncTask(fBytes, fPassword, PDFView.this, pdfiumCore);
-            decodingAsyncTask.executeOnExecutor(DOWNLOAD_THREAD_POOL_EXECUTOR);
+            if (DOWNLOAD_THREAD_POOL_EXECUTOR.isShutdown()
+                    || DOWNLOAD_THREAD_POOL_EXECUTOR.isTerminated()
+                    || DOWNLOAD_THREAD_POOL_EXECUTOR.isTerminating())
+                return;
+            try {
+                decodingAsyncTask.executeOnExecutor(DOWNLOAD_THREAD_POOL_EXECUTOR);
+            } catch (Exception e) {
+
+            }
         } else {
             try {
                 decodingAsyncTask = new DecodingAsyncTask(fileBytes, password, this, pdfiumCore);

@@ -116,9 +116,9 @@ class RenderingAsyncTask extends AsyncTask<Void, PagePart, Void> {
             openedPages.add(renderingTask.page);
             pdfiumCore.openPage(pdfDocument, renderingTask.page);
         }
-
         int w = Math.round(renderingTask.width);
         int h = Math.round(renderingTask.height);
+        if (w <= 0 || h <= 0) return null;
         Bitmap render = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888);
         calculateBounds(w, h, renderingTask.bounds);
 

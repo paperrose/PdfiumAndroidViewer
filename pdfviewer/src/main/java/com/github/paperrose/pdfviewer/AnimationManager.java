@@ -20,6 +20,8 @@ import android.animation.Animator.AnimatorListener;
 import android.animation.ValueAnimator;
 import android.animation.ValueAnimator.AnimatorUpdateListener;
 import android.graphics.PointF;
+import android.os.Handler;
+import android.os.Looper;
 import android.view.animation.DecelerateInterpolator;
 import android.widget.Scroller;
 
@@ -47,6 +49,23 @@ class AnimationManager {
 
     public void startXAnimation(float xFrom, float xTo) {
         stopAll();
+        if (handler != null) {
+            handler.post(() -> sxa(xFrom, xTo));
+        } else {
+            sxa(xFrom, xTo);
+        }
+    }
+
+    private void sya(float yFrom, float yTo) {
+        animation = ValueAnimator.ofFloat(yFrom, yTo);
+        animation.setInterpolator(new DecelerateInterpolator());
+        animation.addUpdateListener(new YAnimation());
+        animation.setDuration(400);
+        animation.start();
+    }
+
+
+    private void sxa(float xFrom, float xTo) {
         animation = ValueAnimator.ofFloat(xFrom, xTo);
         animation.setInterpolator(new DecelerateInterpolator());
         animation.addUpdateListener(new XAnimation());
@@ -56,26 +75,51 @@ class AnimationManager {
 
     public void startYAnimation(float yFrom, float yTo) {
         stopAll();
-        animation = ValueAnimator.ofFloat(yFrom, yTo);
-        animation.setInterpolator(new DecelerateInterpolator());
-        animation.addUpdateListener(new YAnimation());
-        animation.setDuration(400);
-        animation.start();
+        if (handler != null) {
+            handler.post(() -> sya(yFrom, yTo));
+        } else {
+            sya(yFrom, yTo);
+        }
     }
+
+    Handler handler = new Handler(Looper.getMainLooper());
 
     public void startZoomAnimation(float centerX, float centerY, float zoomFrom, float zoomTo) {
         stopAll();
-        animation = ValueAnimator.ofFloat(zoomFrom, zoomTo);
-        animation.setInterpolator(new DecelerateInterpolator());
-        ZoomAnimation zoomAnim = new ZoomAnimation(centerX, centerY);
-        animation.addUpdateListener(zoomAnim);
-        animation.addListener(zoomAnim);
-        animation.setDuration(400);
-        animation.start();
+        if (handler != null) {
+            handler.post(() -> {
+                sza(centerX, centerY, zoomFrom, zoomTo);
+            });
+        } else {
+            sza(centerX, centerY, zoomFrom, zoomTo);
+        }
+    }
+
+    public void sza(float centerX, float centerY, float zoomFrom, float zoomTo) {
+        stopAll();
+        handler.post(() -> {
+            animation = ValueAnimator.ofFloat(zoomFrom, zoomTo);
+            animation.setInterpolator(new DecelerateInterpolator());
+            ZoomAnimation zoomAnim = new ZoomAnimation(centerX, centerY);
+            animation.addUpdateListener(zoomAnim);
+            animation.addListener(zoomAnim);
+            animation.setDuration(400);
+            animation.start();
+        });
     }
 
     public void startFlingAnimation(int startX, int startY, int velocityX, int velocityY, int minX, int maxX, int minY, int maxY) {
         stopAll();
+        if (handler != null)
+            handler.post(() -> {
+                sfa(startX, startY, velocityX, velocityY, minX, maxX, minY, maxY);
+            });
+        else {
+            sfa(startX, startY, velocityX, velocityY, minX, maxX, minY, maxY);
+        }
+    }
+
+    private void sfa(int startX, int startY, int velocityX, int velocityY, int minX, int maxX, int minY, int maxY) {
         flingAnimation = ValueAnimator.ofFloat(0, 1);
         FlingAnimation flingAnim = new FlingAnimation();
         flingAnimation.addUpdateListener(flingAnim);
@@ -86,19 +130,24 @@ class AnimationManager {
     }
 
     public void stopAll() {
-        if (animation != null) {
-            animation.cancel();
-            animation = null;
-        }
+        new Handler(Looper.getMainLooper()).post(() -> {
+            if (animation != null) {
+                animation.cancel();
+                animation = null;
+            }
+        });
+
         stopFling();
     }
 
     public void stopFling() {
-        if (flingAnimation != null) {
-            scroller.forceFinished(true);
-            flingAnimation.cancel();
-            flingAnimation = null;
-        }
+        new Handler(Looper.getMainLooper()).post(() -> {
+            if (flingAnimation != null) {
+                scroller.forceFinished(true);
+                flingAnimation.cancel();
+                flingAnimation = null;
+            }
+        });
     }
 
     class XAnimation implements AnimatorUpdateListener {
