@@ -16,9 +16,10 @@
 package com.github.paperrose.pdfviewer;
 
 import android.graphics.RectF;
-import android.support.annotation.Nullable;
 
-import com.github.paperrose.pdfviewer.model.PagePart;
+import androidx.annotation.Nullable;
+
+import com.github.paperrose.pdfviewer.model.DoublePagePart;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -28,25 +29,25 @@ import java.util.PriorityQueue;
 import static com.github.paperrose.pdfviewer.util.Constants.Cache.CACHE_SIZE;
 import static com.github.paperrose.pdfviewer.util.Constants.Cache.THUMBNAILS_CACHE_SIZE;
 
-class CacheManager {
+class DoubleCacheManager {
 
-    private final PriorityQueue<PagePart> passiveCache;
+    private final PriorityQueue<DoublePagePart> passiveCache;
 
-    private final PriorityQueue<PagePart> activeCache;
+    private final PriorityQueue<DoublePagePart> activeCache;
 
-    private final List<PagePart> thumbnails;
+    public final List<DoublePagePart> thumbnails;
 
-    private final Object passiveActiveLock = new Object();
+    public final Object passiveActiveLock = new Object();
 
     private final PagePartComparator comparator = new PagePartComparator();
 
-    public CacheManager() {
+    public DoubleCacheManager() {
         activeCache = new PriorityQueue<>(CACHE_SIZE, comparator);
         passiveCache = new PriorityQueue<>(CACHE_SIZE, comparator);
         thumbnails = new ArrayList<>();
     }
 
-    public void cachePart(PagePart part) {
+    public void cachePart(DoublePagePart part) {
         synchronized (passiveActiveLock) {
             // If cache too big, remove and recycle
             makeAFreeSpace();
@@ -67,7 +68,7 @@ class CacheManager {
         synchronized (passiveActiveLock) {
             while ((activeCache.size() + passiveCache.size()) >= CACHE_SIZE &&
                     !passiveCache.isEmpty()) {
-                PagePart part = passiveCache.poll();
+                DoublePagePart part = passiveCache.poll();
                 part.getRenderedBitmap().recycle();
             }
 
@@ -78,7 +79,7 @@ class CacheManager {
         }
     }
 
-    public void cacheThumbnail(PagePart part) {
+    public void cacheThumbnail(DoublePagePart part) {
         synchronized (thumbnails) {
             // If cache too big, remove and recycle
             if (thumbnails.size() >= THUMBNAILS_CACHE_SIZE) {
@@ -91,10 +92,10 @@ class CacheManager {
 
     }
 
-    public boolean upPartIfContained(int userPage, int page, float width, float height, RectF pageRelativeBounds, int toOrder) {
-        PagePart fakePart = new PagePart(userPage, page, null, width, height, pageRelativeBounds, false, 0);
+    public boolean upPartIfContained(int userPage, int page, float width, float height, RectF pageRelativeBounds, int toOrder, boolean rightPage) {
+        DoublePagePart fakePart = new DoublePagePart(userPage, page, null, width, height, pageRelativeBounds, false, 0, rightPage);
 
-        PagePart found;
+        DoublePagePart found;
         synchronized (passiveActiveLock) {
             if ((found = find(passiveCache, fakePart)) != null) {
                 passiveCache.remove(found);
@@ -110,10 +111,10 @@ class CacheManager {
     /**
      * Return true if already contains the described PagePart
      */
-    public boolean containsThumbnail(int userPage, int page, float width, float height, RectF pageRelativeBounds) {
-        PagePart fakePart = new PagePart(userPage, page, null, width, height, pageRelativeBounds, true, 0);
+    public boolean containsThumbnail(int userPage, int page, float width, float height, RectF pageRelativeBounds, boolean rightPage) {
+        DoublePagePart fakePart = new DoublePagePart(userPage, page, null, width, height, pageRelativeBounds, true, 0, rightPage);
         synchronized (thumbnails) {
-            for (PagePart part : thumbnails) {
+            for (DoublePagePart part : thumbnails) {
                 if (part.equals(fakePart)) {
                     return true;
                 }
@@ -123,8 +124,8 @@ class CacheManager {
     }
 
     @Nullable
-    private static PagePart find(PriorityQueue<PagePart> vector, PagePart fakePart) {
-        for (PagePart part : vector) {
+    private static DoublePagePart find(PriorityQueue<DoublePagePart> vector, DoublePagePart fakePart) {
+        for (DoublePagePart part : vector) {
             if (part.equals(fakePart)) {
                 return part;
             }
@@ -132,15 +133,15 @@ class CacheManager {
         return null;
     }
 
-    public List<PagePart> getPageParts() {
+    public List<DoublePagePart> getPageParts() {
         synchronized (passiveActiveLock) {
-            List<PagePart> parts = new ArrayList<>(passiveCache);
+            List<DoublePagePart> parts = new ArrayList<>(passiveCache);
             parts.addAll(activeCache);
             return parts;
         }
     }
 
-    public List<PagePart> getThumbnails() {
+    public List<DoublePagePart> getThumbnails() {
         synchronized (thumbnails) {
             return thumbnails;
         }
@@ -148,26 +149,26 @@ class CacheManager {
 
     public void recycle() {
         synchronized (passiveActiveLock) {
-            for (PagePart part : passiveCache) {
+            for (DoublePagePart part : passiveCache) {
                 part.getRenderedBitmap().recycle();
             }
             passiveCache.clear();
-            for (PagePart part : activeCache) {
+            for (DoublePagePart part : activeCache) {
                 part.getRenderedBitmap().recycle();
             }
             activeCache.clear();
         }
         synchronized (thumbnails) {
-            for (PagePart part : thumbnails) {
+            for (DoublePagePart part : thumbnails) {
                 part.getRenderedBitmap().recycle();
             }
             thumbnails.clear();
         }
     }
 
-    class PagePartComparator implements Comparator<PagePart> {
+    class PagePartComparator implements Comparator<DoublePagePart> {
         @Override
-        public int compare(PagePart part1, PagePart part2) {
+        public int compare(DoublePagePart part1, DoublePagePart part2) {
             if (part1.getCacheOrder() == part2.getCacheOrder()) {
                 return 0;
             }

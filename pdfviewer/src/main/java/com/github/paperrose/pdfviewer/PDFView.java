@@ -26,12 +26,8 @@ import android.graphics.Rect;
 import android.graphics.RectF;
 import android.graphics.drawable.Drawable;
 import android.net.Uri;
-import android.os.AsyncTask;
-import android.os.Handler;
 import android.util.AttributeSet;
 import android.util.Log;
-import android.util.Pair;
-import android.view.View;
 import android.widget.RelativeLayout;
 
 import com.github.paperrose.pdfviewer.exception.FileNotFoundException;

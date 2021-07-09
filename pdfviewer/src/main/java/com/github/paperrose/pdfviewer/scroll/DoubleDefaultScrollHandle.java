@@ -4,18 +4,19 @@ import android.content.Context;
 import android.graphics.Color;
 import android.graphics.drawable.Drawable;
 import android.os.Handler;
-import android.support.v4.content.ContextCompat;
 import android.util.TypedValue;
 import android.view.MotionEvent;
 import android.view.ViewGroup;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
 
-import com.github.paperrose.pdfviewer.PDFView;
+import androidx.core.content.ContextCompat;
+
+import com.github.paperrose.pdfviewer.DoublePDFView;
 import com.github.paperrose.pdfviewer.R;
 import com.github.paperrose.pdfviewer.util.Util;
 
-public class DefaultScrollHandle extends RelativeLayout implements ScrollHandle {
+public class DoubleDefaultScrollHandle extends RelativeLayout implements DoubleScrollHandle {
 
     private final static int HANDLE_LONG = 65;
     private final static int HANDLE_SHORT = 40;
@@ -26,7 +27,7 @@ public class DefaultScrollHandle extends RelativeLayout implements ScrollHandle 
     protected TextView textView;
     protected Context context;
     private boolean inverted;
-    private PDFView pdfView;
+    private DoublePDFView pdfView;
     private float currentPos;
 
     private Handler handler = new Handler();
@@ -37,11 +38,11 @@ public class DefaultScrollHandle extends RelativeLayout implements ScrollHandle 
         }
     };
 
-    public DefaultScrollHandle(Context context) {
+    public DoubleDefaultScrollHandle(Context context) {
         this(context, false);
     }
 
-    public DefaultScrollHandle(Context context, boolean inverted) {
+    public DoubleDefaultScrollHandle(Context context, boolean inverted) {
         super(context);
         this.context = context;
         this.inverted = inverted;
@@ -52,7 +53,7 @@ public class DefaultScrollHandle extends RelativeLayout implements ScrollHandle 
     }
 
     @Override
-    public void setupLayout(PDFView pdfView) {
+    public void setupLayout(DoublePDFView pdfView) {
         int align, width, height;
         Drawable background;
         // determine handler position, default is right (when scrolling vertically) or bottom (when scrolling horizontally)

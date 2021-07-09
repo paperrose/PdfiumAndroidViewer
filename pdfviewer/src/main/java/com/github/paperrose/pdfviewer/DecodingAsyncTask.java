@@ -20,37 +20,33 @@ import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.ParcelFileDescriptor;
 
+import com.github.paperrose.pdfviewer.util.CryptLab;
 import com.github.paperrose.pdfviewer.util.FileUtils;
-import com.shockwave.pdfium.CryptLab;
 import com.shockwave.pdfium.PdfDocument;
 import com.shockwave.pdfium.PdfiumCore;
 
 import java.io.File;
 import java.io.IOException;
 
-class DoubleDecodingAsyncTask extends AsyncTask<Void, Void, Throwable> {
+class DecodingAsyncTask extends AsyncTask<Void, Void, Throwable> {
 
     private boolean cancelled;
 
     private String path;
-    private String rpath = null;
 
     private boolean isAsset;
 
-    private DoublePDFView pdfView;
+    private PDFView pdfView;
     private boolean isByteArray;
     private byte[] fileBytes;
-    private byte[] rightBytes;
-    private boolean twoPageMode = false;
 
 
     private Context context;
     private PdfiumCore pdfiumCore;
     private PdfDocument pdfDocument;
-    private PdfDocument pdfRightDocument;
     private String password;
 
-    public DoubleDecodingAsyncTask(String path, boolean isAsset, String password, DoublePDFView pdfView, PdfiumCore pdfiumCore) {
+    public DecodingAsyncTask(String path, boolean isAsset, String password, PDFView pdfView, PdfiumCore pdfiumCore) {
         this.cancelled = false;
         this.pdfView = pdfView;
         this.isAsset = isAsset;
@@ -61,20 +57,7 @@ class DoubleDecodingAsyncTask extends AsyncTask<Void, Void, Throwable> {
         context = pdfView.getContext();
     }
 
-    public DoubleDecodingAsyncTask(String lpath, String rpath, boolean isAsset, String password, DoublePDFView pdfView, PdfiumCore pdfiumCore) {
-        this.cancelled = false;
-        this.pdfView = pdfView;
-        this.isAsset = isAsset;
-        this.isByteArray = false;
-        this.twoPageMode = true;
-        this.password = password;
-        this.pdfiumCore = pdfiumCore;
-        this.path = lpath;
-        this.rpath = rpath;
-        context = pdfView.getContext();
-    }
-
-    public DoubleDecodingAsyncTask(byte[] fileBytes, String password, DoublePDFView pdfView, PdfiumCore pdfiumCore) {
+    public DecodingAsyncTask(byte[] fileBytes, String password, PDFView pdfView, PdfiumCore pdfiumCore) {
         this.cancelled = false;
         this.pdfView = pdfView;
         this.password = password;
@@ -83,19 +66,6 @@ class DoubleDecodingAsyncTask extends AsyncTask<Void, Void, Throwable> {
         this.fileBytes = fileBytes;
         context = pdfView.getContext();
     }
-
-    public DoubleDecodingAsyncTask(byte[] leftBytes, byte[] rightBytes, String password, DoublePDFView pdfView, PdfiumCore pdfiumCore) {
-        this.cancelled = false;
-        this.twoPageMode = true;
-        this.pdfView = pdfView;
-        this.password = password;
-        this.pdfiumCore = pdfiumCore;
-        this.isByteArray = true;
-        this.fileBytes = leftBytes;
-        this.rightBytes = rightBytes;
-        context = pdfView.getContext();
-    }
-
 
     @Override
     protected Throwable doInBackground(Void... params) {
@@ -107,31 +77,20 @@ class DoubleDecodingAsyncTask extends AsyncTask<Void, Void, Throwable> {
                     fileBytes = CryptLab.decodeAES(fileBytes, password);
                     if (cancelled)
                         return null;
-                    if (twoPageMode) {
-                        rightBytes = CryptLab.decodeAES(rightBytes, password);
-                        if (cancelled)
-                            return null;
-                    }
-                    
                 }
                 pdfDocument = pdfiumCore.newDocument(fileBytes);
-                if (twoPageMode) {
-                    pdfRightDocument = pdfiumCore.newDocument(rightBytes);
-                }
+                //TODO - encodeAES in example
             } else {
                 if (isAsset) {
                     path = FileUtils.fileFromAsset(context, path).getAbsolutePath();
                 }
 
                 pdfDocument = pdfiumCore.newDocument(getSeekableFileDescriptor(path), password);
-                if (twoPageMode) {
-                    rpath = FileUtils.fileFromAsset(context, rpath).getAbsolutePath();
-                    pdfRightDocument = pdfiumCore.newDocument(getSeekableFileDescriptor(rpath), password);
-                }
             }
 
             return null;
         } catch (Throwable t) {
+            t.printStackTrace();
             return t;
         }
     }
@@ -166,7 +125,7 @@ class DoubleDecodingAsyncTask extends AsyncTask<Void, Void, Throwable> {
             return;
         }
         if (!cancelled) {
-            pdfView.loadCompleteWithCheck(pdfDocument, pdfRightDocument, true);
+            pdfView.loadCompleteWithCheck(pdfDocument, isByteArray);
         }
     }
 
